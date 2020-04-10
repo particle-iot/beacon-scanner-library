@@ -10,6 +10,7 @@ void KontaktTag::populateData(const BleScanResult *scanResult)
     {
         cursor += 2;
         if (buf[cursor] == 0x03) // Telemetry v1 packet
+        // Definition is here: https://developer.kontakt.io/hardware/packets/telemetry/
         {
             cursor++;
             while (cursor < count)

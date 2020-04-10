@@ -1,6 +1,6 @@
 # Beacon Scanner
 
-This library scans for BLE advertisements and parses them for common beacon standards. Currently supported:
+This library works with Particle Gen3 devices to scan for BLE advertisements and parses them for common beacon standards. Currently supported:
 * iBeacon
 * Kontakt.io beacons (tested with Asset Tag S18-3)
 
