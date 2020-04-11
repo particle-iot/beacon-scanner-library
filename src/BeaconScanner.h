@@ -9,7 +9,6 @@
 #include "kontaktTag.h"
 #include "eddystone.h"
 
-#define PUBLISH_CHUNK 622
 
 typedef enum ble_scanner_config_t {
   SCAN_IBEACON         = 0x01,
@@ -23,21 +22,20 @@ public:
   Beaconscanner() {};
   ~Beaconscanner() = default;
 
-  void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags);
-  void scan(uint16_t duration, int flags);
-  void scan(uint16_t duration) {scan(duration, 0xFF);};
-  void scan() {scan(5,0xFF);};
+  void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver = false);
+  void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
 
   Vector<KontaktTag> getKontaktTags() {return kSensors;};
   Vector<iBeaconScan> getiBeacons() {return iBeacons;};
   Vector<Eddystone> getEddystone() {return eBeacons;};
 
-  template<typename T> static String getJson(Vector<T> beacons);
-  String kontaktJson();
-  String ibeaconJson();
+  template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
+
+  JSONBufferWriter *writer;
 
   private:
-    bool _iBeaconPublish, _kontaktPublish, _iBeaconScan, _kontaktScan, _eddystonePublish, _eddystoneScan;
+    bool _publish, _memory_saver;
+    int _flags;
     PublishFlags _pFlags;
     Vector<BleAddress> kPublished, iPublished, ePublished;
     const char* _eventName;
@@ -45,6 +43,7 @@ public:
     Vector<iBeaconScan> iBeacons;
     Vector<Eddystone> eBeacons;
     static void scanChunkResultCallback(const BleScanResult *scanResult, void *context);
+    void publish(int type);
     void customScan(uint16_t interval);
 };
 
