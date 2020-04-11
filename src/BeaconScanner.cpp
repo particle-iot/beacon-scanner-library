@@ -31,6 +31,20 @@ String Beaconscanner::ibeaconJson()
     return String::format("%.*s", writer.dataSize(), writer.buffer());
 }
 
+template<typename T>
+String Beaconscanner::getJson(Vector<T> beacons)
+{
+    char buf[PUBLISH_CHUNK];
+    JSONBufferWriter writer(buf, PUBLISH_CHUNK);
+    writer.beginObject();
+    while (!beacons.isEmpty())
+    {
+        beacons.takeFirst().toJson(&writer);
+    }
+    writer.endObject();
+    return String::format("%.*s", writer.dataSize(), writer.buffer());
+}
+
 void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, void *context)
 {
     Beaconscanner *ctx = (Beaconscanner *)context;
@@ -78,6 +92,28 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             Particle.publish(String::format("%s-kontakt", ctx->_eventName), ctx->kontaktJson(), ctx->_pFlags);
         }
     }
+    if (ctx->_eddystoneScan && !ctx->ePublished.contains(scanResult->address) && Eddystone::isBeacon(scanResult))
+    {
+        Eddystone new_beacon;
+        for (uint8_t i = 0; i < ctx->eBeacons.size(); i++)
+        {
+            if (ctx->eBeacons.at(i).getAddress() == scanResult->address)
+            {
+                new_beacon = ctx->eBeacons.takeAt(i);
+                break;
+            }
+        }
+        new_beacon.populateData(scanResult);
+        ctx->eBeacons.append(new_beacon);
+        if (ctx->_eddystonePublish && ctx->eBeacons.size() > 3)
+        {
+            for (uint8_t i=0;i < ctx->eBeacons.size();i++)
+            {
+                ctx->ePublished.append(ctx->eBeacons.at(i).getAddress());
+            }
+            Particle.publish(String::format("%s-eddystone", ctx->_eventName), getJson(ctx->eBeacons), ctx->_pFlags);
+        }
+    }
 }
 
 void Beaconscanner::customScan(uint16_t duration)
@@ -92,6 +128,7 @@ void Beaconscanner::customScan(uint16_t duration)
     BLE.setScanParameters(&scanParams); 
     kPublished.clear();
     iPublished.clear();
+    ePublished.clear();
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
     {
@@ -103,6 +140,7 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 {
     _iBeaconPublish = _iBeaconScan = (flags & SCAN_IBEACON);
     _kontaktPublish = _kontaktScan = (flags & SCAN_KONTAKT);
+    _eddystonePublish = _eddystoneScan = (flags & SCAN_EDDYSTONE);
     _eventName = eventName;
     _pFlags = pFlags;
     customScan(duration);
@@ -114,12 +152,17 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
     {
         Particle.publish(String::format("%s-kontakt",eventName),kontaktJson(),_pFlags);
     }
+    if (_eddystonePublish && !eBeacons.isEmpty())
+    {
+        Particle.publish(String::format("%s-eddystone", eventName), getJson(eBeacons), _pFlags);
+    }
 }
 
 void Beaconscanner::scan(uint16_t duration, int flags)
 {
-    _iBeaconPublish = _kontaktPublish = false;
+    _iBeaconPublish = _kontaktPublish, _eddystonePublish = false;
     _iBeaconScan = (flags & SCAN_IBEACON);
     _kontaktScan = (flags & SCAN_KONTAKT);
+    _eddystoneScan = (flags & SCAN_EDDYSTONE);
     customScan(duration);
 }
