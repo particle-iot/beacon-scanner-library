@@ -26,5 +26,11 @@ void loop() {
     {
       iBeaconScan beacon = beacons.takeFirst();
       Log.info("Address: %s, major: %u, minor: %u", beacon.getAddress().toString().c_str(), beacon.getMajor(), beacon.getMinor()); 
-  }
+    }
+    Vector<Eddystone> ebeacons = scanner.getEddystone();
+    while(!ebeacons.isEmpty())
+    {
+      Eddystone ebeacon = ebeacons.takeFirst();
+      Log.info("Address: %s", ebeacon.getAddress().toString().c_str());
+    }
 }
