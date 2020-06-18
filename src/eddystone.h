@@ -86,6 +86,8 @@ public:
 
     BleAddress getAddress() { return address;}
     Uid getUid() {return uid;}
+    Url getUrl() {return url;}
+    Tlm getTlm() {return tlm;}
 
 private:
     BleAddress address;
