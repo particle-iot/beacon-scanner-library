@@ -19,7 +19,7 @@ void loop() {
     while(!tags.isEmpty())
     {
       KontaktTag tag = tags.takeFirst();
-      Log.info("Address: %s, Temperature: %u", tag.getAddress().toString().c_str(), tag.getTemperature());
+      Log.info("Address: %s, Temperature: %d", tag.getAddress().toString().c_str(), tag.getTemperature());
     }
     Vector<iBeaconScan> beacons = scanner.getiBeacons();
     while(!beacons.isEmpty())
@@ -33,4 +33,5 @@ void loop() {
       Eddystone ebeacon = ebeacons.takeFirst();
       Log.info("Address: %s", ebeacon.getAddress().toString().c_str());
     }
+  }
 }

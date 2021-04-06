@@ -1,10 +1,11 @@
 #include "kontaktTag.h"
+#include "os-version-macros.h"
 
 void KontaktTag::populateData(const BleScanResult *scanResult)
 {
-    address = scanResult->address;
+    address = ADDRESS(scanResult);
     uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-    uint8_t count = scanResult->advertisingData.get(BleAdvertisingDataType::SERVICE_DATA, buf, sizeof(buf));
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, sizeof(buf));
     uint8_t cursor = 0;
     if (count > 3 && buf[0] == 0x6A && buf[1] == 0xFE) // Kontakt UUID
     {
@@ -62,10 +63,10 @@ void KontaktTag::populateData(const BleScanResult *scanResult)
 
 bool KontaktTag::isTag(const BleScanResult *scanResult)
 {
-    if (scanResult->advertisingData.contains(BleAdvertisingDataType::SERVICE_DATA))
+    if (ADVERTISING_DATA(scanResult).contains(BleAdvertisingDataType::SERVICE_DATA))
     {
         uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-        uint8_t count = scanResult->advertisingData.get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
+        uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
         if (count > 3 && buf[0] == 0x6A && buf[1] == 0xFE) // Kontakt UUID
             return true;
     }

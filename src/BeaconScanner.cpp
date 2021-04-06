@@ -2,6 +2,7 @@
  */
 
 #include "BeaconScanner.h"
+#include "os-version-macros.h"
 
 #define PUBLISH_CHUNK 622
 #define IBEACON_JSON_SIZE 119
@@ -40,12 +41,12 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
      *  Publish if the Vector size is getting too large, to stay under the cloud publish limit
      */
     Beaconscanner *ctx = (Beaconscanner *)context;
-    if ((ctx->_flags & SCAN_IBEACON) && !ctx->iPublished.contains(scanResult->address) && iBeaconScan::isBeacon(scanResult))
+    if ((ctx->_flags & SCAN_IBEACON) && !ctx->iPublished.contains(ADDRESS(scanResult)) && iBeaconScan::isBeacon(scanResult))
     {
         iBeaconScan new_beacon;
         for (uint8_t i = 0; i < ctx->iBeacons.size(); i++)
         {
-            if (ctx->iBeacons.at(i).getAddress() == scanResult->address)
+            if (ctx->iBeacons.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_beacon = ctx->iBeacons.takeAt(i);
                 break;
@@ -64,12 +65,13 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             }
             ctx->publish(SCAN_IBEACON);
         }
-    } else if ((ctx->_flags & SCAN_KONTAKT) && !ctx->kPublished.contains(scanResult->address) && KontaktTag::isTag(scanResult))
+    }
+    else if ((ctx->_flags & SCAN_KONTAKT) && !ctx->kPublished.contains(ADDRESS(scanResult)) && KontaktTag::isTag(scanResult))
     {
         KontaktTag new_tag;
         for (uint8_t i = 0; i < ctx->kSensors.size(); i++)
         {
-            if (ctx->kSensors.at(i).getAddress() == scanResult->address)
+            if (ctx->kSensors.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_tag = ctx->kSensors.takeAt(i);
                 break;
@@ -88,12 +90,12 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             }
             ctx->publish(SCAN_KONTAKT);
         }
-    } else if ((ctx->_flags & SCAN_EDDYSTONE) && !ctx->ePublished.contains(scanResult->address) && Eddystone::isBeacon(scanResult))
+    } else if ((ctx->_flags & SCAN_EDDYSTONE) && !ctx->ePublished.contains(ADDRESS(scanResult)) && Eddystone::isBeacon(scanResult))
     {
         Eddystone new_beacon;
         for (uint8_t i = 0; i < ctx->eBeacons.size(); i++)
         {
-            if (ctx->eBeacons.at(i).getAddress() == scanResult->address)
+            if (ctx->eBeacons.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_beacon = ctx->eBeacons.takeAt(i);
                 break;

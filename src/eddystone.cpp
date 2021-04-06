@@ -1,21 +1,22 @@
+#include "os-version-macros.h"
 #include "eddystone.h"
 
 void Eddystone::populateData(const BleScanResult *scanResult)
 {
-    address = scanResult->address;
+    address = ADDRESS(scanResult);
     uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-    uint8_t count = scanResult->advertisingData.get(BleAdvertisingDataType::SERVICE_DATA, buf, sizeof(buf));
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, sizeof(buf));
     if (count > 2 && buf[0] == 0xAA && buf[1] == 0xFE) // Eddystone UUID
     {
         switch (buf[2])
         {
         case 0x00:
             if (count > 19)
-                uid.populateData(buf, scanResult->rssi);
+                uid.populateData(buf, RSSI(scanResult));
             break;
         case 0x10:
             if (count > 5)
-                url.populateData(buf, scanResult->rssi, count);
+                url.populateData(buf, RSSI(scanResult), count);
             break;
         case 0x20:
             if (count == 16)      // According to the spec, packet length must be 16
@@ -29,10 +30,10 @@ void Eddystone::populateData(const BleScanResult *scanResult)
 
 bool Eddystone::isBeacon(const BleScanResult *scanResult)
 {
-    if (scanResult->advertisingData.contains(BleAdvertisingDataType::SERVICE_DATA))
+    if (ADVERTISING_DATA(scanResult).contains(BleAdvertisingDataType::SERVICE_DATA))
     {
         uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-        uint8_t count = scanResult->advertisingData.get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
+        uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
         if (count > 3 && buf[0] == 0xAA && buf[1] == 0xFE) // Eddystone UUID
             return true;
     }
