@@ -54,17 +54,6 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
         }
         new_beacon.populateData(scanResult);
         ctx->iBeacons.append(new_beacon);
-        if (ctx->_publish && (  
-            (ctx->_memory_saver && ctx->iBeacons.size() >= IBEACON_CHUNK) ||
-            (!ctx->_memory_saver && ctx->iBeacons.size() >= IBEACON_NONSAVER)
-            ) )
-        {
-            for (uint8_t i = 0; i < IBEACON_CHUNK; i++)
-            {
-                ctx->iPublished.append(ctx->iBeacons.at(i).getAddress());
-            }
-            ctx->publish(SCAN_IBEACON);
-        }
     }
     else if ((ctx->_flags & SCAN_KONTAKT) && !ctx->kPublished.contains(ADDRESS(scanResult)) && KontaktTag::isTag(scanResult))
     {
@@ -79,17 +68,6 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
         }
         new_tag.populateData(scanResult);
         ctx->kSensors.append(new_tag);
-        if (ctx->_publish && (
-            (ctx->_memory_saver && ctx->kSensors.size() >= KONTAKT_CHUNK) ||
-            (!ctx->_memory_saver && ctx->kSensors.size() >= KONTAKT_NONSAVER)
-        ) )
-        {
-            for (uint8_t i = 0; i < KONTAKT_CHUNK; i++)
-            {
-                ctx->kPublished.append(ctx->kSensors.at(i).getAddress());
-            }
-            ctx->publish(SCAN_KONTAKT);
-        }
     } else if ((ctx->_flags & SCAN_EDDYSTONE) && !ctx->ePublished.contains(ADDRESS(scanResult)) && Eddystone::isBeacon(scanResult))
     {
         Eddystone new_beacon;
@@ -103,17 +81,6 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
         }
         new_beacon.populateData(scanResult);
         ctx->eBeacons.append(new_beacon);
-        if (ctx->_publish && (
-            (ctx->_memory_saver && ctx->eBeacons.size() >= EDDYSTONE_CHUNK) ||
-            (!ctx->_memory_saver && ctx->eBeacons.size() >= EDDYSTONE_NONSAVER)
-        ) )
-        {
-            for (uint8_t i=0;i < EDDYSTONE_CHUNK;i++)
-            {
-                ctx->ePublished.append(ctx->eBeacons.at(i).getAddress());
-            }
-            ctx->publish(SCAN_EDDYSTONE);
-        }
     }
 }
 
@@ -146,6 +113,39 @@ void Beaconscanner::customScan(uint16_t duration)
     while(millis() - elapsed < duration*1000)
     {
         BLE.scan(scanChunkResultCallback, this);
+        if (_publish && (  
+            (_memory_saver && iBeacons.size() >= IBEACON_CHUNK) ||
+            (!_memory_saver && iBeacons.size() >= IBEACON_NONSAVER)
+            ) )
+        {
+            for (uint8_t i = 0; i < IBEACON_CHUNK; i++)
+            {
+                iPublished.append(iBeacons.at(i).getAddress());
+            }
+            publish(SCAN_IBEACON);
+        }
+        if (_publish && (
+            (_memory_saver && kSensors.size() >= KONTAKT_CHUNK) ||
+            (!_memory_saver && kSensors.size() >= KONTAKT_NONSAVER)
+        ) )
+        {
+            for (uint8_t i = 0; i < KONTAKT_CHUNK; i++)
+            {
+                kPublished.append(kSensors.at(i).getAddress());
+            }
+            publish(SCAN_KONTAKT);
+        }
+        if (_publish && (
+            (_memory_saver && eBeacons.size() >= EDDYSTONE_CHUNK) ||
+            (!_memory_saver && eBeacons.size() >= EDDYSTONE_NONSAVER)
+        ) )
+        {
+            for (uint8_t i=0;i < EDDYSTONE_CHUNK;i++)
+            {
+                ePublished.append(eBeacons.at(i).getAddress());
+            }
+            publish(SCAN_EDDYSTONE);
+        }
     }
 }
 
