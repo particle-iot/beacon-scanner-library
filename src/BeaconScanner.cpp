@@ -17,15 +17,19 @@
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
 
+Beaconscanner *Beaconscanner::_instance = nullptr;
+
 template<typename T>
 String Beaconscanner::getJson(Vector<T>* beacons, uint8_t count, void *context)
 {
     Beaconscanner *ctx = (Beaconscanner *)context;
-    Log.info("Going to get JSON");
     ctx->writer->beginObject();
-    for(;count > 0;count--)
+    SINGLE_THREADED_BLOCK() {
+    while(count > 0 && !beacons->isEmpty())
     {
         beacons->takeFirst().toJson(ctx->writer);
+        count--;
+    }
     }
     ctx->writer->endObject();
     return String::format("%.*s", ctx->writer->dataSize(), ctx->writer->buffer());
@@ -53,21 +57,23 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             }
         }
         new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
         ctx->iBeacons.append(new_beacon);
     }
     else if ((ctx->_flags & SCAN_KONTAKT) && !ctx->kPublished.contains(ADDRESS(scanResult)) && KontaktTag::isTag(scanResult))
     {
-        KontaktTag new_tag;
+        KontaktTag new_beacon;
         for (uint8_t i = 0; i < ctx->kSensors.size(); i++)
         {
             if (ctx->kSensors.at(i).getAddress() == ADDRESS(scanResult))
             {
-                new_tag = ctx->kSensors.takeAt(i);
+                new_beacon = ctx->kSensors.takeAt(i);
                 break;
             }
         }
-        new_tag.populateData(scanResult);
-        ctx->kSensors.append(new_tag);
+        new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
+        ctx->kSensors.append(new_beacon);
     } else if ((ctx->_flags & SCAN_EDDYSTONE) && !ctx->ePublished.contains(ADDRESS(scanResult)) && Eddystone::isBeacon(scanResult))
     {
         Eddystone new_beacon;
@@ -80,12 +86,12 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             }
         }
         new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
         ctx->eBeacons.append(new_beacon);
     }
 }
 
-void Beaconscanner::customScan(uint16_t duration)
-{
+void custom_scan_params() {
     /*
      *  The callback appears to be called just once per MAC address per BLE.scan(callback) call.
      *  This is ok if the advertiser always sends the same info (like an iBeacon). Kontakt and
@@ -103,6 +109,11 @@ void Beaconscanner::customScan(uint16_t duration)
     scanParams.active = false;
     scanParams.filter_policy = BLE_SCAN_FP_ACCEPT_ALL;
     BLE.setScanParameters(&scanParams); 
+}
+
+void Beaconscanner::customScan(uint16_t duration)
+{
+    custom_scan_params();
     kPublished.clear();
     iPublished.clear();
     ePublished.clear();
@@ -151,6 +162,7 @@ void Beaconscanner::customScan(uint16_t duration)
 
 void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver)
 {
+    if (_run) return;
     _flags = flags;
     _publish = true;
     _eventName = eventName;
@@ -167,9 +179,70 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 
 void Beaconscanner::scan(uint16_t duration, int flags)
 {
+    if (_run) return;
     _publish= false;
     _flags = flags;
     customScan(duration);
+}
+
+void Beaconscanner::scan_thread(void *param) {
+    while(true) {
+        if (!_instance->_run) {
+            os_thread_yield();
+            continue;
+        }
+        custom_scan_params();
+        long int elapsed = millis();
+        while(_instance->_run && millis() - elapsed < _instance->_scan_period*1000) {
+            BLE.scan(scanChunkResultCallback, _instance);
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < _instance->iBeacons.size(); i++) {
+                if (_instance->iBeacons.at(i).missed_scan > _instance->_clear_missed) {
+                    _instance->iBeacons.removeAt(i);
+                    i--;
+                } else {
+                    _instance->iBeacons.at(i).missed_scan++;
+                }
+            }
+            for (int i = 0; i < _instance->eBeacons.size(); i++) {
+                if (_instance->eBeacons.at(i).missed_scan > _instance->_clear_missed) {
+                    _instance->eBeacons.removeAt(i);
+                    i--;
+                } else {
+                    _instance->eBeacons.at(i).missed_scan++;
+                }
+            }
+            for (int i = 0; i < _instance->kSensors.size(); i++) {
+                if (_instance->kSensors.at(i).missed_scan > _instance->_clear_missed) {
+                    _instance->kSensors.removeAt(i);
+                    i--;
+                } else {
+                    _instance->kSensors.at(i).missed_scan++;
+                }
+            }
+        }
+        os_thread_yield();
+    }
+}
+
+void Beaconscanner::startContinuous(int flags) {
+    _flags = flags;
+    _run = true;
+    if (_thread == nullptr) 
+        _thread = new Thread("scan_thread", scan_thread);
+}
+
+void Beaconscanner::stopContinuous() {
+    _run = false;
+}
+
+void Beaconscanner::publish(const char* eventName, int type)
+{
+    _eventName = eventName;
+    if (type & SCAN_IBEACON) publish(SCAN_IBEACON);
+    if (type & SCAN_KONTAKT) publish(SCAN_KONTAKT);
+    if (type & SCAN_EDDYSTONE) publish(SCAN_EDDYSTONE);
 }
 
 void Beaconscanner::publish(int type)
@@ -179,10 +252,10 @@ void Beaconscanner::publish(int type)
     switch (type)
     {
         case SCAN_IBEACON:
-            Particle.publish(String::format("%s-ibeacon",_eventName),getJson(&iBeacons, std::min(IBEACON_CHUNK, iBeacons.size()), this),_pFlags);
+            Particle.publish(String::format("%s-ibeacon", _eventName), getJson(&iBeacons, std::min(IBEACON_CHUNK, iBeacons.size()), this),_pFlags);
             break;
         case SCAN_KONTAKT:
-            Particle.publish(String::format("%s-kontakt",_eventName),getJson(&kSensors, std::min(KONTAKT_CHUNK, kSensors.size()), this),_pFlags);
+            Particle.publish(String::format("%s-kontakt", _eventName), getJson(&kSensors, std::min(KONTAKT_CHUNK, kSensors.size()), this),_pFlags);
             break;
         case SCAN_EDDYSTONE:
             Particle.publish(String::format("%s-eddystone", _eventName), getJson(&eBeacons, std::min(EDDYSTONE_CHUNK, eBeacons.size()),this), _pFlags);

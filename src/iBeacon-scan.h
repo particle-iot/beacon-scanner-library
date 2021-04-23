@@ -2,9 +2,9 @@
 #ifndef IBEACON_SCAN_H
 #define IBEACON_SCAN_H
 
-#include "Particle.h"
+#include "beacon.h"
 
-class iBeaconScan
+class iBeaconScan : public Beacon
 {
 public:
     iBeaconScan() {rssi=rssi_count=0;};

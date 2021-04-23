@@ -2,11 +2,11 @@
 #ifndef EDDYSTONE_H
 #define EDDYSTONE_H
 
-#include "Particle.h"
+#include "beacon.h"
 
 // Eddystone specification: https://github.com/google/eddystone/blob/master/protocol-specification.md
 
-class Eddystone
+class Eddystone : public Beacon
 {
 public:
     Eddystone() {};

@@ -1,9 +1,9 @@
 #ifndef KONTAKT_TAG_H
 #define KONTAKT_TAG_H
 
-#include "Particle.h"
+#include "beacon.h"
 
-class KontaktTag
+class KontaktTag : public Beacon
 {
 public:
     KontaktTag()
