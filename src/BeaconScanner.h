@@ -68,4 +68,6 @@ public:
         _thread(nullptr) {};
 };
 
+#define Scanner Beaconscanner::instance()
+
 #endif

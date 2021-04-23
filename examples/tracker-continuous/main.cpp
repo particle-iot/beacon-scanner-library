@@ -41,7 +41,7 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
 
 void locationGenerationCallback(JSONWriter &writer, LocationPoint &point, const void *context)
 {
-    for (auto i : Beaconscanner::instance().getKontaktTags()) {
+    for (auto i : Scanner.getKontaktTags()) {
         writer->name(address.toString()).beginObject();
         if (battery != 0xFF)
             writer->name("batt").value(battery);
@@ -64,7 +64,7 @@ void setup()
     Tracker::instance().init();
     Tracker::instance().location.regLocGenCallback(locationGenerationCallback);
     BLE.on();
-    Beaconscanner::instance().startContinuous();
+    Scanner.startContinuous();
 }
 
 

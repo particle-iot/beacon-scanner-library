@@ -13,6 +13,6 @@ unsigned long scannedTime = 0;
 void loop() {
   if (Particle.connected() && (millis() - scannedTime) > 10000) {
     scannedTime = millis();
-    Beaconscanner::instance().scanAndPublish(5, SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE, "test", PRIVATE);
+    Scanner.scanAndPublish(5, SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE, "test", PRIVATE);
   }
 }

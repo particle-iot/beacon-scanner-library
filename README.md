@@ -9,6 +9,29 @@ This library works with Particle Gen3 devices to scan for BLE advertisements and
 
 There are a few functions that an application can call depending on the needs of the use case.
 
+### __NEW in Version 1.0.0__ Continuous threaded scanning
+
+In this mode, the application no longer needs to block when doing a scan. Instead, start the continuous mode with
+the following API. This will most likely go in `setup()` if the Application is always scanning:
+
+```c++
+Scanner.startContinuous();
+```
+
+Then, whenever the application can at any time get Vectors of the most recently scanned tags like this:
+
+```c++
+for (auto i : Scanner.getKontaktTags()) {
+    Log.info("Address: %s, Temperature %u", i.getAddress().toString().c_str(), i.getTemperature());
+}
+```
+
+Or have the library automatically publish:
+
+```c++
+Scanner.publish("all");
+```
+
 ### Automatic Scan and Publish
 
 In this mode, the library will scan for BLE advertisements, and use Particle.publish() to send the data to the cloud.
@@ -53,26 +76,80 @@ For an iBeacon, all the values will be based on the last received packet except 
 
 ## Typical usage
 
-    #include "Particle.h"
-    #include "BeaconScanner.h"
+```c++
+#include "Particle.h"
+#include "BeaconScanner.h"
 
-    SYSTEM_THREAD(ENABLED);
+SYSTEM_THREAD(ENABLED);
 
-    Beaconscanner scanner;
+void setup() {
+}
 
-    void setup() {
+unsigned long scannedTime = 0;
+
+void loop() {
+    if (Particle.connected() && (millis() - scannedTime) > 10000) {
+        scannedTime = millis();
+        Scanner.scanAndPublish(5, SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE, "test", PRIVATE);
     }
+}
+```
 
-    unsigned long scannedTime = 0;
+## Typical Tracker usage
 
-    void loop() {
-        if (Particle.connected() && (millis() - scannedTime) > 10000) {
-            scannedTime = millis();
-            scanner.scanAndPublish(5, SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE, "test", PRIVATE);
+```c++
+#include "Particle.h"
+#include "tracker_config.h"
+#include "tracker.h"
+#include "BeaconScanner.h"
+
+SYSTEM_THREAD(ENABLED);
+SYSTEM_MODE(SEMI_AUTOMATIC);
+
+PRODUCT_ID(TRACKER_PRODUCT_ID);
+PRODUCT_VERSION(TRACKER_PRODUCT_VERSION);
+
+STARTUP(
+    Tracker::startup();
+);
+
+void locationGenerationCallback(JSONWriter &writer, LocationPoint &point, const void *context)
+{
+    for (auto i : Scanner.getKontaktTags()) {
+        writer->name(address.toString()).beginObject();
+        if (battery != 0xFF)
+            writer->name("batt").value(battery);
+        if (temperature != 0xFF)
+            writer->name("temp").value(temperature);
+        if (button_time != 0xFFFF)
+            writer->name("button").value(button_time);
+        if (accel_data)
+        {
+            writer->name("x_axis").value(x_axis);
+            writer->name("y_axis").value(y_axis);
+            writer->name("z_axis").value(z_axis);
         }
-    }
+        writer->endObject();
+      }
+}
+
+void setup()
+{
+    Tracker::instance().init();
+    Tracker::instance().location.regLocGenCallback(locationGenerationCallback);
+    BLE.on();
+    Scanner.startContinuous();
+}
+
+
+void loop()
+{
+    Tracker::instance().loop();
+}
+```
 
 ## Examples
 
 * __Log:__ Starts a scan for iBeacons, Kontakt tags, and Eddystone beacons, and then logs the address, major, and minor of the beacons, address and temperature of the tags, and address of Eddystone
 * __Publish:__ Starts a scan which publishes all the types of devices
+* __Tracker Continuous:__ With a Tracker, continuously scan and publish the most recently detected when the Tracker decides to publish
