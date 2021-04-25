@@ -198,7 +198,7 @@ void Beaconscanner::scan_thread(void *param) {
         }
         SINGLE_THREADED_BLOCK() {
             for (int i = 0; i < _instance->iBeacons.size(); i++) {
-                if (_instance->iBeacons.at(i).missed_scan > _instance->_clear_missed) {
+                if (_instance->iBeacons.at(i).missed_scan >= _instance->_clear_missed) {
                     _instance->iBeacons.removeAt(i);
                     i--;
                 } else {
@@ -206,7 +206,7 @@ void Beaconscanner::scan_thread(void *param) {
                 }
             }
             for (int i = 0; i < _instance->eBeacons.size(); i++) {
-                if (_instance->eBeacons.at(i).missed_scan > _instance->_clear_missed) {
+                if (_instance->eBeacons.at(i).missed_scan >= _instance->_clear_missed) {
                     _instance->eBeacons.removeAt(i);
                     i--;
                 } else {
@@ -214,7 +214,7 @@ void Beaconscanner::scan_thread(void *param) {
                 }
             }
             for (int i = 0; i < _instance->kSensors.size(); i++) {
-                if (_instance->kSensors.at(i).missed_scan > _instance->_clear_missed) {
+                if (_instance->kSensors.at(i).missed_scan >= _instance->_clear_missed) {
                     _instance->kSensors.removeAt(i);
                     i--;
                 } else {

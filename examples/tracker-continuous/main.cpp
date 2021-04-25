@@ -42,21 +42,8 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_TRACE, {
 void locationGenerationCallback(JSONWriter &writer, LocationPoint &point, const void *context)
 {
     for (auto i : Scanner.getKontaktTags()) {
-        writer->name(address.toString()).beginObject();
-        if (battery != 0xFF)
-            writer->name("batt").value(battery);
-        if (temperature != 0xFF)
-            writer->name("temp").value(temperature);
-        if (button_time != 0xFFFF)
-            writer->name("button").value(button_time);
-        if (accel_data)
-        {
-            writer->name("x_axis").value(x_axis);
-            writer->name("y_axis").value(y_axis);
-            writer->name("z_axis").value(z_axis);
-        }
-        writer->endObject();
-      }
+        i.toJson(&writer);
+    }
 }
 
 void setup()

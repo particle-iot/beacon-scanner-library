@@ -16,21 +16,20 @@ public:
 
     static bool isTag(const BleScanResult *scanResult);
     void populateData(const BleScanResult *scanResult);
-    void toJson(JSONBufferWriter *writer);
+    void toJson(JSONWriter *writer) const override;
 
-    BleAddress getAddress() { return address; };
-    uint8_t getBattery() { return battery; };
-    int8_t getTemperature() { return temperature; };
-    uint8_t getAccelSensitivity() { return accel_sensitivity; };
-    uint16_t getButtonTime() { return button_time; };
-    uint16_t getAccelLastDoubleTap() { return accel_last_double_tap; };
-    uint16_t getAccelLastMovement() { return accel_last_movement; };
-    int8_t getAccelXaxis() { return x_axis; };
-    int8_t getAccelYaxis() { return y_axis; };
-    int8_t getAccelZaxis() { return z_axis; };
+    uint8_t getBattery() const { return battery; };
+    int8_t getTemperature() const { return temperature; };
+    uint8_t getAccelSensitivity() const { return accel_sensitivity; };
+    uint16_t getButtonTime() const { return button_time; };
+    uint16_t getAccelLastDoubleTap() const { return accel_last_double_tap; };
+    uint16_t getAccelLastMovement() const { return accel_last_movement; };
+    bool hasAccelData() const { return accel_data; };
+    int8_t getAccelXaxis() const { return x_axis; };
+    int8_t getAccelYaxis() const { return y_axis; };
+    int8_t getAccelZaxis() const { return z_axis; };
 
 private:
-    BleAddress address;
     uint8_t battery, accel_sensitivity;
     uint16_t button_time, accel_last_double_tap, accel_last_movement;
     int8_t x_axis, y_axis, z_axis, temperature;

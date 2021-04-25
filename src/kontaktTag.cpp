@@ -73,7 +73,7 @@ bool KontaktTag::isTag(const BleScanResult *scanResult)
     return false;
 }
 
-void KontaktTag::toJson(JSONBufferWriter *writer)
+void KontaktTag::toJson(JSONWriter *writer) const
 {
         writer->name(address.toString()).beginObject();
         if (battery != 0xFF)

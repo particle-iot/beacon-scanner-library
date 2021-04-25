@@ -35,6 +35,24 @@ public:
   void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
   void startContinuous(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
   void stopContinuous();
+  /**
+   * For continuous mode, set the period, in seconds, after which a device is considered
+   * to have missed a scan. Default is 10.
+   */
+  void setScanPeriod(uint8_t seconds) {
+    if (seconds > 0) _scan_period = seconds;
+   }
+  /**
+   * When in continuous mode, a beacon will be removed from the Vector of beacons after
+   * we have missed seeing it for X number of scan periods. Must be 1 or larger. This will
+   * also affect when callbacks are issued for beacons going out of range (callbacks not yet
+   * implemented).
+   * 
+   * Default is 1.
+   */
+  void setMissedCount(uint8_t count) { 
+    if (count > 0) _clear_missed = count; 
+  };
 
   void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
   Vector<KontaktTag> getKontaktTags() {return kSensors;};

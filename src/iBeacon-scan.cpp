@@ -30,7 +30,7 @@ bool iBeaconScan::isBeacon(const BleScanResult *scanResult)
     return false;
 }
 
-void iBeaconScan::toJson(JSONBufferWriter *writer)
+void iBeaconScan::toJson(JSONWriter *writer) const
 {
         writer->name(address.toString()).beginObject();
         writer->name("uuid").value(getUuid());

@@ -12,17 +12,15 @@ public:
 
     void populateData(const BleScanResult *scanResult);
     static bool isBeacon(const BleScanResult *scanResult);
-    void toJson(JSONBufferWriter *writer);
+    void toJson(JSONWriter *writer) const override;
 
-    BleAddress getAddress() { return address;}
-    char* getUuid() {return uuid;};
-    uint16_t getMajor() {return major;}
-    uint16_t getMinor() {return minor;}
-    int8_t getPower() {return power;}
-    int8_t getRssi() {return (int8_t)(rssi/rssi_count);}
+    const char* getUuid() const {return uuid;};
+    uint16_t getMajor() const {return major;}
+    uint16_t getMinor() const {return minor;}
+    int8_t getPower() const {return power;}
+    int8_t getRssi() const {return (int8_t)(rssi/rssi_count);}
 
 private:
-    BleAddress address;
     char uuid[37];
     uint16_t major;
     uint16_t minor;

@@ -40,7 +40,7 @@ bool Eddystone::isBeacon(const BleScanResult *scanResult)
     return false;
 }
 
-void Eddystone::toJson(JSONBufferWriter *writer)
+void Eddystone::toJson(JSONWriter *writer) const
 {
         writer->name(address.toString()).beginObject();
         if (uid.found) 
@@ -105,7 +105,7 @@ void Eddystone::Tlm::populateData(uint8_t *buf)
     }
 }
 
-String Eddystone::Url::urlString()
+String Eddystone::Url::urlString() const
 {
     char buf[50];
     uint8_t cursor=0;
