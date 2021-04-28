@@ -9,7 +9,7 @@
 class Eddystone : public Beacon
 {
 public:
-    Eddystone() {};
+    Eddystone() : Beacon(SCAN_EDDYSTONE) {};
     ~Eddystone() = default;
 
     class Uid {

@@ -6,7 +6,7 @@
 class KontaktTag : public Beacon
 {
 public:
-    KontaktTag()
+    KontaktTag() : Beacon(SCAN_KONTAKT)
     {
         battery = temperature = 0xFF;
         button_time = accel_last_double_tap = accel_last_movement = 0xFFFF;

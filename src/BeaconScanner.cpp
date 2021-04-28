@@ -42,7 +42,8 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
      *  Create new instance, and populate with existing data if already in the Vector.
      *  Populate data into the instance with the info just received.
      *  Add instance back into the Vector
-     *  Publish if the Vector size is getting too large, to stay under the cloud publish limit
+     *  
+     *  This executes in the BLE thread, so must make sure to not do anything that consumes too much time or blocks.
      */
     Beaconscanner *ctx = (Beaconscanner *)context;
     if ((ctx->_flags & SCAN_IBEACON) && !ctx->iPublished.contains(ADDRESS(scanResult)) && iBeaconScan::isBeacon(scanResult))
@@ -53,6 +54,7 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             if (ctx->iBeacons.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_beacon = ctx->iBeacons.takeAt(i);
+                new_beacon.newly_scanned = false;
                 break;
             }
         }
@@ -68,6 +70,7 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             if (ctx->kSensors.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_beacon = ctx->kSensors.takeAt(i);
+                new_beacon.newly_scanned = false;
                 break;
             }
         }
@@ -82,6 +85,7 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
             if (ctx->eBeacons.at(i).getAddress() == ADDRESS(scanResult))
             {
                 new_beacon = ctx->eBeacons.takeAt(i);
+                new_beacon.newly_scanned = false;
                 break;
             }
         }
@@ -196,32 +200,7 @@ void Beaconscanner::scan_thread(void *param) {
         while(_instance->_run && millis() - elapsed < _instance->_scan_period*1000) {
             BLE.scan(scanChunkResultCallback, _instance);
         }
-        SINGLE_THREADED_BLOCK() {
-            for (int i = 0; i < _instance->iBeacons.size(); i++) {
-                if (_instance->iBeacons.at(i).missed_scan >= _instance->_clear_missed) {
-                    _instance->iBeacons.removeAt(i);
-                    i--;
-                } else {
-                    _instance->iBeacons.at(i).missed_scan++;
-                }
-            }
-            for (int i = 0; i < _instance->eBeacons.size(); i++) {
-                if (_instance->eBeacons.at(i).missed_scan >= _instance->_clear_missed) {
-                    _instance->eBeacons.removeAt(i);
-                    i--;
-                } else {
-                    _instance->eBeacons.at(i).missed_scan++;
-                }
-            }
-            for (int i = 0; i < _instance->kSensors.size(); i++) {
-                if (_instance->kSensors.at(i).missed_scan >= _instance->_clear_missed) {
-                    _instance->kSensors.removeAt(i);
-                    i--;
-                } else {
-                    _instance->kSensors.at(i).missed_scan++;
-                }
-            }
-        }
+        _instance->_scan_done = true;
         os_thread_yield();
     }
 }
@@ -235,6 +214,80 @@ void Beaconscanner::startContinuous(int flags) {
 
 void Beaconscanner::stopContinuous() {
     _run = false;
+}
+
+void Beaconscanner::loop() {
+    for (auto& i : iBeacons) {
+        if (_callback && i.newly_scanned) {
+            _callback(i, NEW);
+            i.newly_scanned = false;
+        }
+    }
+    for (auto& e : eBeacons) {
+        if (_callback && e.newly_scanned) {
+            _callback(e, NEW);
+            e.newly_scanned = false;
+        }
+    }
+    for (auto& k : kSensors) {
+        if (_callback && k.newly_scanned) {
+            _callback(k, NEW);
+            k.newly_scanned = false;
+        }
+    }
+    if (_scan_done) {
+        for (auto& i : iBeacons) {
+            if (i.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(i, REMOVED);
+                }
+                i.missed_scan = -1; // Use an invalid value to mark for removal
+            } else {
+                i.missed_scan++;
+            }
+        }
+        for (auto& e : eBeacons) {
+            if (e.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(e, REMOVED);
+                }
+                e.missed_scan = -1;
+            } else {
+                e.missed_scan++;
+            }
+        }
+        for (auto& k : kSensors) {
+            if (k.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(k, REMOVED);
+                } 
+                k.missed_scan = -1;
+            } else {
+                k.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < iBeacons.size(); i++) {
+                if (iBeacons.at(i).missed_scan < 0) {
+                    iBeacons.removeAt(i);
+                    i--;
+                }
+            }
+            for (int i = 0; i < eBeacons.size(); i++) {
+                if (eBeacons.at(i).missed_scan < 0) {
+                    eBeacons.removeAt(i);
+                    i--;
+                }
+            }
+            for (int i = 0; i < iBeacons.size(); i++) {
+                if (kSensors.at(i).missed_scan < 0) {
+                    kSensors.removeAt(i);
+                    i--;
+                }
+            }
+        }
+        _scan_done = false;
+    }
 }
 
 void Beaconscanner::publish(const char* eventName, int type)

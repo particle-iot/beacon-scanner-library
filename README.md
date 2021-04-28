@@ -18,7 +18,42 @@ the following API. This will most likely go in `setup()` if the Application is a
 Scanner.startContinuous();
 ```
 
-Then, whenever the application can at any time get Vectors of the most recently scanned tags like this:
+For callbacks and removal of "stale" beacons (those that go out of range), it is required to periodically
+call the `loop()` function in the library. This can be added to the application's `loop()`:
+
+```c++
+void loop() {
+    // Other code here
+    Scanner.loop();
+}
+```
+
+The application can set the duration of each scan period by calling `setScanPeriod(uint8_t seconds)`. The default
+is 10 seconds. This period is important to decide when to remove beacons from the Vectors, as that is done when
+a whole period has elapsed without that beacon being detected. That logic can be changed by calling
+`setMissedCount(uint8_t count)` and adjusting from 1 missed period to a larger number of periods.
+
+One way of using the continuous mode, is to register a callback function that will get called each time a beacon
+comes into range or goes out of range. To do so, declare a callback function like this:
+
+```c++
+void onCallback(Beacon& beacon, callback_type type) {
+  Log.trace("Address: %s. Type: %s", beacon.getAddress().toString().c_str(), (type == NEW) ? "Entered" : "Left");
+}
+
+void setup() {
+    // Other setup
+    BLE.on();
+    Scanner.setCallback(onCallback);
+    Scanner.startContinuous();
+}
+```
+
+Another option instead of callbacks (or in addition), the application can at any time get Vectors of the most recently 
+scanned beacons like this (note that if the application consumes the beacons, callbacks of type `NEW` will be issued
+when they are scanned again). 
+
+The following example doesn't consume the beacons:
 
 ```c++
 for (auto i : Scanner.getKontaktTags()) {
@@ -26,7 +61,29 @@ for (auto i : Scanner.getKontaktTags()) {
 }
 ```
 
-Or have the library automatically publish:
+You can also provide a `JSONWriter` instance to the `toJson()` function of a beacon, to have it automatically
+generate the JSON for the application. This might be useful if you want to add the values to your own Publish
+event, or if you have a Tracker and are using the Tracker's location object to add the beacons to. Using it
+in the Tracker would look like this:
+
+```c++
+void locationGenerationCallback(JSONWriter &writer, LocationPoint &point, const void *context)
+{
+    for (auto i : Scanner.getKontaktTags()) {
+        i.toJson(&writer);
+    }
+}
+void setup() {
+    // Other setup
+    Tracker::instance().init();
+    Tracker::instance().location.regLocGenCallback(locationGenerationCallback);
+    BLE.on();
+    Scanner.startContinuous();
+}
+```
+
+Or have the library automatically publish. This function consumes the beacons in the Vectors, so if callbacks are
+enabled, they will be called with type `NEW` if the beacons are detected again.
 
 ```c++
 Scanner.publish("all");
@@ -36,14 +93,16 @@ Scanner.publish("all");
 
 In this mode, the library will scan for BLE advertisements, and use Particle.publish() to send the data to the cloud.
 
-    
-    void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver)
-
-    duration: How long to collect data, in seconds
-    flags: Which type of beacons to publish. Use bitwise OR for multiple. e.g.: SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE
-    eventName: The cloud publish will use this event name, and add "-ibeacon","-kontakt","-eddystone"
-    pFlags: Flags for the publish, e.g.: PRIVATE
-    memory_saver: Default is false. If set to true, it will publish more often and use less memory. Caution, this means that some data might not be collected from beacons that advertise multiple times with different data.
+```c++
+void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver)
+/*
+duration:   How long to collect data, in seconds
+flags:      Which type of beacons to publish. Use bitwise OR for multiple. e.g.: SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE
+eventName:  The cloud publish will use this event name, and add "-ibeacon","-kontakt","-eddystone"
+pFlags:     Flags for the publish, e.g.: PRIVATE
+memory_saver: Default is false. If set to true, it will publish more often and use less memory. Caution, this means that some data might not be collected from beacons that advertise multiple times with different data.
+*/
+```
 
 The output of this on the console looks like (with eventName "test"):
 ![](img/kontakt-example.png)
@@ -54,17 +113,20 @@ The output of this on the console looks like (with eventName "test"):
 
 If the application needs to get the data, rather than automatically publishing it, this can be accomplished by first running a scan using the following function:
 
-    void scan(uint16_t duration, int flags)
-
-    duration: How long to collect data, in seconds (default: 5)
-    flags: Which type of beacons to publish. Use bitwise OR for multiple. e.g.: SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE (default: all)
+```c++
+void scan(uint16_t duration, int flags)
+/*
+duration: How long to collect data, in seconds (default: 5)
+flags: Which type of beacons to publish. Use bitwise OR for multiple. e.g.: SCAN_KONTAKT | SCAN_IBEACON | SCAN_EDDYSTONE (default: all)
+*/
+```
 
 And then the data for each supported type of advertiser can be retrieved as a Vector:
-
-    Vector<KontaktTag> getKontaktTags();
-    Vector<iBeacon> getiBeacons();
-    Vector<Eddystone> getEddystone();
-
+```c++
+Vector<KontaktTag> getKontaktTags();
+Vector<iBeacon> getiBeacons();
+Vector<Eddystone> getEddystone();
+```
 
 ### A note on "duration"
 
@@ -132,6 +194,7 @@ void setup()
 void loop()
 {
     Tracker::instance().loop();
+    Scanner.loop();
 }
 ```
 
@@ -140,3 +203,4 @@ void loop()
 * __Log:__ Starts a scan for iBeacons, Kontakt tags, and Eddystone beacons, and then logs the address, major, and minor of the beacons, address and temperature of the tags, and address of Eddystone
 * __Publish:__ Starts a scan which publishes all the types of devices
 * __Tracker Continuous:__ With a Tracker, continuously scan and publish the most recently detected when the Tracker decides to publish
+* __Tracker Callback:__ With a Tracker, continuously scan, and use callbacks to alert the application when a beacon has been newly detected, or has been missed for more than 10 seconds. The callback function will store these events, and then append them to the normal location publish.

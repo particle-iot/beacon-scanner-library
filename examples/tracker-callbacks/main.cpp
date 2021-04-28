@@ -31,11 +31,29 @@ STARTUP(
     Tracker::startup();
 );
 
+Vector<BleAddress> entered, left;
+
 void locationGenerationCallback(JSONWriter &writer, LocationPoint &point, const void *context)
 {
-    for (auto i : Scanner.getKontaktTags()) {
-        i.toJson(&writer);
+    writer.name("entered").beginArray();
+    while (!entered.isEmpty()) {
+      writer.value(entered.takeFirst().toString());
     }
+    writer.endArray();
+    writer.name("left").beginArray();
+    while (!left.isEmpty()) {
+      writer.value(left.takeFirst().toString());
+    }
+    writer.endArray();
+}
+
+void onCallback(Beacon& beacon, callback_type type) {
+  if (type == NEW && !entered.contains(beacon.getAddress())) {
+    entered.append(beacon.getAddress());
+  }
+  if (type == REMOVED && !left.contains(beacon.getAddress())) {
+    left.append(beacon.getAddress());
+  }
 }
 
 void setup()
@@ -43,6 +61,7 @@ void setup()
     Tracker::instance().init();
     Tracker::instance().location.regLocGenCallback(locationGenerationCallback);
     BLE.on();
+    Scanner.setCallback(onCallback);
     Scanner.startContinuous();
 }
 
@@ -50,5 +69,5 @@ void setup()
 void loop()
 {
     Tracker::instance().loop();
-    Scanner.loop()
+    Scanner.loop();
 }

@@ -7,7 +7,7 @@
 class iBeaconScan : public Beacon
 {
 public:
-    iBeaconScan() {rssi=rssi_count=0;};
+    iBeaconScan() : Beacon(SCAN_IBEACON), rssi(0), rssi_count(0) {};
     ~iBeaconScan() = default;
 
     void populateData(const BleScanResult *scanResult);
