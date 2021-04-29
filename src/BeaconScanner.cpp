@@ -279,7 +279,7 @@ void Beaconscanner::loop() {
                     i--;
                 }
             }
-            for (int i = 0; i < iBeacons.size(); i++) {
+            for (int i = 0; i < kSensors.size(); i++) {
                 if (kSensors.at(i).missed_scan < 0) {
                     kSensors.removeAt(i);
                     i--;
