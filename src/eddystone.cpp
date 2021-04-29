@@ -1,4 +1,3 @@
-#include "os-version-macros.h"
 #include "eddystone.h"
 
 void Eddystone::populateData(const BleScanResult *scanResult)

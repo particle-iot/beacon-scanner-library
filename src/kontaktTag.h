@@ -15,7 +15,7 @@ public:
     ~KontaktTag() = default;
 
     static bool isTag(const BleScanResult *scanResult);
-    void populateData(const BleScanResult *scanResult);
+    void populateData(const BleScanResult *scanResult) override;
     void toJson(JSONWriter *writer) const override;
 
     uint8_t getBattery() const { return battery; };

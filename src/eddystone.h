@@ -80,7 +80,7 @@ public:
         uint32_t sec_cnt;
     };
 
-    void populateData(const BleScanResult *scanResult);
+    void populateData(const BleScanResult *scanResult) override;
     static bool isBeacon(const BleScanResult *scanResult);
     void toJson(JSONWriter *writer) const override;
 

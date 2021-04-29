@@ -1,8 +1,8 @@
 #include "kontaktTag.h"
-#include "os-version-macros.h"
 
 void KontaktTag::populateData(const BleScanResult *scanResult)
 {
+    Beacon::populateData(scanResult);
     address = ADDRESS(scanResult);
     uint8_t buf[BLE_MAX_ADV_DATA_LEN];
     uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, sizeof(buf));
@@ -88,5 +88,6 @@ void KontaktTag::toJson(JSONWriter *writer) const
             writer->name("y_axis").value(y_axis);
             writer->name("z_axis").value(z_axis);
         }
+        writer->name("rssi").value(getRssi());
         writer->endObject();
 }

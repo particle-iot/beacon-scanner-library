@@ -1,19 +1,17 @@
 #include "iBeacon-scan.h"
-#include "os-version-macros.h"
 
 void iBeaconScan::populateData(const BleScanResult *scanResult)
 {
-        address = ADDRESS(scanResult);
-        uint8_t custom_data[BLE_MAX_ADV_DATA_LEN];
-        ADVERTISING_DATA(scanResult).customData(custom_data, sizeof(custom_data));
-        snprintf(uuid, sizeof(uuid), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-                 custom_data[4], custom_data[5], custom_data[6], custom_data[7], custom_data[8], custom_data[9], custom_data[10], custom_data[11], custom_data[12],
-                 custom_data[13], custom_data[14], custom_data[15], custom_data[16], custom_data[17], custom_data[18], custom_data[19]);
-        major = custom_data[20] * 256 + custom_data[21];
-        minor = custom_data[22] * 256 + custom_data[23];
-        power = (int8_t)custom_data[24];
-        rssi += RSSI(scanResult);
-        rssi_count++;
+    Beacon::populateData(scanResult);
+    address = ADDRESS(scanResult);
+    uint8_t custom_data[BLE_MAX_ADV_DATA_LEN];
+    ADVERTISING_DATA(scanResult).customData(custom_data, sizeof(custom_data));
+    snprintf(uuid, sizeof(uuid), "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+                custom_data[4], custom_data[5], custom_data[6], custom_data[7], custom_data[8], custom_data[9], custom_data[10], custom_data[11], custom_data[12],
+                custom_data[13], custom_data[14], custom_data[15], custom_data[16], custom_data[17], custom_data[18], custom_data[19]);
+    major = custom_data[20] * 256 + custom_data[21];
+    minor = custom_data[22] * 256 + custom_data[23];
+    power = (int8_t)custom_data[24];
 }
 
 bool iBeaconScan::isBeacon(const BleScanResult *scanResult)
