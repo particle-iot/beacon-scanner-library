@@ -92,6 +92,8 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
         new_beacon.populateData(scanResult);
         new_beacon.missed_scan = 0;
         ctx->eBeacons.append(new_beacon);
+    } else if (ctx->_customCallback) {
+        ctx->_customCallback(scanResult);
     }
 }
 

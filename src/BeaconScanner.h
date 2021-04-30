@@ -17,6 +17,7 @@ typedef enum {
 } callback_type;
 
 typedef void (*BeaconScanCallback)(Beacon& beacon, callback_type type);
+typedef void (*CustomBeaconCallback)(const BleScanResult *scanResult);
 
 class Beaconscanner
 {
@@ -108,6 +109,12 @@ public:
   void loop();
 
   /**
+   * Register a callback that will be called when a broadcast is scanned, but it doesn't
+   * match any of the known beacons. This is intended for applications that want to detect
+   * custom beacons without modifying the library itself.
+   */
+  void setCallback(CustomBeaconCallback callback) { _customCallback = callback; };
+  /**
    * Calling this will automatically publish the beacons that have been scanned. It will also
    * consume all stored beacons in the vectors.
    * 
@@ -149,13 +156,15 @@ public:
     void publish(int type);
     void customScan(uint16_t interval);
     BeaconScanCallback _callback;
+    CustomBeaconCallback _customCallback;
     Beaconscanner() :
         _run(false),
         _scan_done(false),
         _clear_missed(1),
         _scan_period(10),
         _thread(nullptr),
-        _callback(nullptr) {};
+        _callback(nullptr),
+        _customCallback(nullptr) {};
 };
 
 #define Scanner Beaconscanner::instance()
