@@ -4,10 +4,20 @@
 #ifndef BEACON_SCANNER_H
 #define BEACON_SCANNER_H
 
+#define SUPPORT_IBEACON
+#define SUPPORT_KONTAKT
+#define SUPPORT_EDDYSTONE
+
 #include "Particle.h"
+#ifdef SUPPORT_IBEACON
 #include "iBeacon-scan.h"
+#endif
+#ifdef SUPPORT_KONTAKT
 #include "kontaktTag.h"
+#endif
+#ifdef SUPPORT_EDDYSTONE
 #include "eddystone.h"
+#endif
 
 // This is the type that will be returned in the callback function, whether a tag has
 // entered the area of the device, or left the area.
@@ -131,9 +141,15 @@ public:
    * Get Vectors of the tags that have been detected
    * 
    */
+#ifdef SUPPORT_KONTAKT
   Vector<KontaktTag> getKontaktTags() {return kSensors;};
+#endif
+#ifdef SUPPORT_IBEACON
   Vector<iBeaconScan> getiBeacons() {return iBeacons;};
+#endif
+#ifdef SUPPORT_EDDYSTONE
   Vector<Eddystone> getEddystone() {return eBeacons;};
+#endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
 
@@ -144,11 +160,19 @@ public:
     int _flags;
     uint8_t _clear_missed, _scan_period;
     PublishFlags _pFlags;
-    Vector<BleAddress> kPublished, iPublished, ePublished;
     const char* _eventName;
+#ifdef SUPPORT_KONTAKT
     Vector<KontaktTag> kSensors;
+    Vector<BleAddress> kPublished;
+#endif
+#ifdef SUPPORT_IBEACON
     Vector<iBeaconScan> iBeacons;
+    Vector<BleAddress> iPublished;
+#endif
+#ifdef SUPPORT_EDDYSTONE
     Vector<Eddystone> eBeacons;
+    Vector<BleAddress> ePublished;
+#endif
     Thread* _thread;
     static Beaconscanner* _instance;
     static void scanChunkResultCallback(const BleScanResult *scanResult, void *context);
