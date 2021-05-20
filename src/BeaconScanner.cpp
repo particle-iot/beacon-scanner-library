@@ -8,14 +8,17 @@
 #define IBEACON_JSON_SIZE 119
 #define KONTAKT_JSON_SIZE 82
 #define EDDYSTONE_JSON_SIZE 260
+#define LAIRDBT510_JSON_SIZE 100
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_CHUNK     ( PUBLISH_CHUNK / EDDYSTONE_JSON_SIZE )
+#define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
+#define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -102,6 +105,26 @@ void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, voi
         ctx->_customCallback(scanResult);
     }
 #endif
+#ifdef SUPPORT_LAIRDBT510
+    if ((ctx->_flags & SCAN_LAIRDBT510) && LairdBt510::isBeacon(scanResult) && !ctx->lPublished.contains(ADDRESS(scanResult)))
+    {
+        LairdBt510 new_beacon;
+        for (uint8_t i = 0; i < ctx->lBeacons.size(); i++)
+        {
+            if (ctx->lBeacons.at(i).getAddress() == ADDRESS(scanResult))
+            {
+                new_beacon = ctx->lBeacons.takeAt(i);
+                new_beacon.newly_scanned = false;
+                break;              
+            }
+        }
+        new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
+        ctx->lBeacons.append(new_beacon);
+    } else if (ctx->_customCallback) {
+        ctx->_customCallback(scanResult);
+    }
+#endif
 }
 
 void custom_scan_params() {
@@ -182,6 +205,19 @@ void Beaconscanner::customScan(uint16_t duration)
             publish(SCAN_EDDYSTONE);
         }
 #endif
+#ifdef SUPPORT_LAIRDBT510
+        if (_publish && (
+            (_memory_saver && lBeacons.size() >= LAIRDBT510_CHUNK) ||
+            (!_memory_saver && lBeacons.size() >= LAIRDBT510_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < LAIRDBT510_CHUNK;i++)
+            {
+                lPublished.append(lBeacons.at(i).getAddress());
+            }
+            publish(SCAN_LAIRDBT510);
+        }
+#endif
     }
 }
 
@@ -205,6 +241,10 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 #ifdef SUPPORT_EDDYSTONE
     while (!eBeacons.isEmpty())
         publish(SCAN_EDDYSTONE);
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    while (!lBeacons.isEmpty())
+        publish(SCAN_LAIRDBT510);
 #endif
 }
 
@@ -268,6 +308,15 @@ void Beaconscanner::loop() {
         }
     }
 #endif
+#ifdef SUPPORT_LAIRDBT510
+    for (auto& l : lBeacons) {
+        if (_callback && l.newly_scanned) {
+            _callback(l, NEW);
+            l.newly_scanned = false;
+        }
+    }
+#endif
+
     if (_scan_done) {
 #ifdef SUPPORT_IBEACON
         for (auto& i : iBeacons) {
@@ -305,6 +354,19 @@ void Beaconscanner::loop() {
             }
         }
 #endif
+#ifdef SUPPORT_LAIRDBT510
+        for (auto& l : lBeacons) {
+            if (l.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(l, REMOVED);
+                }
+                l.missed_scan = -1;
+            } else {
+                l.missed_scan++;
+            }
+        }
+#endif
+
         SINGLE_THREADED_BLOCK() {
 #ifdef SUPPORT_IBEACON
             for (int i = 0; i < iBeacons.size(); i++) {
@@ -331,6 +393,14 @@ void Beaconscanner::loop() {
             }
         }
 #endif
+#ifdef SUPPORT_LAIRDBT510
+            for (int i = 0; i < lBeacons.size(); i++) {
+                if (lBeacons.at(i).missed_scan < 0) {
+                    lBeacons.removeAt(i);
+                    i--;
+                }
+            }
+#endif
         _scan_done = false;
     }
 }
@@ -346,6 +416,9 @@ void Beaconscanner::publish(const char* eventName, int type)
 #endif
 #ifdef SUPPORT_EDDYSTONE
     if (type & SCAN_EDDYSTONE) publish(SCAN_EDDYSTONE);
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    if (type & SCAN_LAIRDBT510) publish(SCAN_LAIRDBT510);
 #endif
 }
 
@@ -368,6 +441,11 @@ void Beaconscanner::publish(int type)
 #ifdef SUPPORT_EDDYSTONE
         case SCAN_EDDYSTONE:
             Particle.publish(String::format("%s-eddystone", _eventName), getJson(&eBeacons, std::min(EDDYSTONE_CHUNK, eBeacons.size()),this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        case SCAN_LAIRDBT510:
+            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&lBeacons, std::min(LAIRDBT510_CHUNK, lBeacons.size()), this), _pFlags);
             break;
 #endif
         default:
