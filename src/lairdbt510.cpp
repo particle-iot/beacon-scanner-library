@@ -1,46 +1,68 @@
 #include "lairdbt510.h"
 
+LairdBt510EventCallback LairdBt510::_eventCallback = nullptr;
+LairdBt510EventCallback LairdBt510::_alarmCallback = nullptr;
+
 void LairdBt510::populateData(const BleScanResult *scanResult)
 {
     Beacon::populateData(scanResult);
     address = ADDRESS(scanResult);
     uint8_t buf[38];
     uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, 38);
-    if (count == 26 && buf[2] == 0x01) {
-        switch ((lairdbt510_event_type)buf[14])
-        {
-        case lairdbt510_event_type::TEMPERATURE:       // Temperature event type
-            _temp = buf[22] << 8 | buf[21];
-            break;
-        case lairdbt510_event_type::MAGNET_PROXIMITY:      // Magnet state event type
-            _magnet = buf[21] == 0x00;
-            break;
-        case lairdbt510_event_type::MOVEMENT:      // Movement event type
-            break;
-        case lairdbt510_event_type::ALARM_HIGH_TEMP_1:      // Alarm high temp 1 event type
-            break;
-        case lairdbt510_event_type::ALARM_HIGH_TEMP_2:      // Alarm high temp 2 event type
-            break;
-        case lairdbt510_event_type::ALARM_HIGH_TEMP_CLEAR:      // Alarm High Temp clear
-            break;
-        case lairdbt510_event_type::ALARM_LOW_TEMP_1:      // Alarm Low Temp 1
-            break;
-        case lairdbt510_event_type::ALARM_LOW_TEMP_2:      // Alarm Low Temp 2
-            break;
-        case lairdbt510_event_type::ALARM_LOW_TEMP_CLEAR:      // Alarm Low Temp clear
-            break;
-        case lairdbt510_event_type::ALARM_DELTA_TEMP:      // Alarm delta temp
-            break;
-        case lairdbt510_event_type::BATTERY_GOOD:      // Battery good
-            break;
-        case lairdbt510_event_type::ADVERTISE_ON_BUTTON:      // Advertise on Button
-            break;
-        case lairdbt510_event_type::BATTERY_BAD:      // Battery bad
-            break;
-        case lairdbt510_event_type::RESET:      // Reset
-            break;
-        default:
-            break;
+    uint16_t prev_record = _record_number;
+    if (count > 25) {   // Advertising data is correct, either table 1 or table 3
+        bool prev_magnet = _magnet_state;
+        uint16_t flags = buf[7] << 8 | buf[6];
+        _magnet_state = (flags & (uint16_t)lairdbt510_flags::MAGNET_STATE);
+        _record_number = buf[16] << 8 | buf[15];
+        if (count == 26 && buf[2] == 0x01) {
+            switch ((lairdbt510_event_type)buf[14])
+            {
+            case lairdbt510_event_type::TEMPERATURE:
+            case lairdbt510_event_type::ALARM_HIGH_TEMP_1:
+            case lairdbt510_event_type::ALARM_HIGH_TEMP_2:
+            case lairdbt510_event_type::ALARM_HIGH_TEMP_CLEAR:
+            case lairdbt510_event_type::ALARM_LOW_TEMP_1:
+            case lairdbt510_event_type::ALARM_LOW_TEMP_2:
+            case lairdbt510_event_type::ALARM_LOW_TEMP_CLEAR:
+            case lairdbt510_event_type::ALARM_DELTA_TEMP:
+                _temp = buf[22] << 8 | buf[21];
+                break;
+            case lairdbt510_event_type::MAGNET_PROXIMITY:
+                _magnet_event = buf[21] == 0x01;
+                break;
+            case lairdbt510_event_type::MOVEMENT:
+                break;
+            case lairdbt510_event_type::BATTERY_GOOD:
+            case lairdbt510_event_type::ADVERTISE_ON_BUTTON:
+            case lairdbt510_event_type::BATTERY_BAD:
+                _batt_voltage = buf[22] << 8 | buf[21];
+                break;
+            case lairdbt510_event_type::RESET:      // Reset
+                break;
+            default:
+                break;
+            }
+            if (_record_number != prev_record)
+                _eventCallback(*this, (lairdbt510_event_type)buf[14]);
+        }
+        if (_alarmCallback != nullptr) {
+            if (flags & (uint16_t)lairdbt510_flags::LOW_BATTERY_ALARM)
+                _alarmCallback(*this, lairdbt510_event_type::BATTERY_BAD);
+            if (flags & (uint16_t)lairdbt510_flags::HIGH_TEMP_ALARM_0)
+                _alarmCallback(*this, lairdbt510_event_type::ALARM_HIGH_TEMP_1);
+            if (flags & (uint16_t)lairdbt510_flags::HIGH_TEMP_ALARM_1)
+                _alarmCallback(*this, lairdbt510_event_type::ALARM_HIGH_TEMP_2);
+            if (flags & (uint16_t)lairdbt510_flags::LOW_TEMP_ALARM_0)
+                _alarmCallback(*this, lairdbt510_event_type::ALARM_LOW_TEMP_1);
+            if (flags & (uint16_t)lairdbt510_flags::LOW_TEMP_ALARM_1)
+                _alarmCallback(*this, lairdbt510_event_type::ALARM_LOW_TEMP_2);
+            if (flags & (uint16_t)lairdbt510_flags::DELTA_TEMP_ALARM)
+                _alarmCallback(*this, lairdbt510_event_type::ALARM_DELTA_TEMP);
+            if (flags & (uint16_t)lairdbt510_flags::MOVEMENT_ALARM)
+                _alarmCallback(*this, lairdbt510_event_type::MOVEMENT);
+            if (prev_magnet != _magnet_state)
+                _alarmCallback(*this, lairdbt510_event_type::MAGNET_PROXIMITY);
         }
     }
 }
