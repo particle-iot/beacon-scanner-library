@@ -162,10 +162,11 @@ void Beaconscanner::customScan(uint16_t duration)
     ePublished.clear();
     eBeacons.clear();
 #endif
-    long int elapsed = millis();
-    while(millis() - elapsed < duration*1000)
+    long int scan_start = millis();
+    BLE.scan(scanChunkResultCallback, this);
+
+    while( (millis() - scan_start) < duration*1000)
     {
-        BLE.scan(scanChunkResultCallback, this);
 #ifdef SUPPORT_IBEACON
         if (_publish && (  
             (_memory_saver && iBeacons.size() >= IBEACON_CHUNK) ||
@@ -219,6 +220,10 @@ void Beaconscanner::customScan(uint16_t duration)
         }
 #endif
     }
+
+    // don't allow scanning to continue after we're done listening to callbacks
+    BLE.stopScanning();
+
 }
 
 void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver)
