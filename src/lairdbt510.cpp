@@ -43,7 +43,7 @@ void LairdBt510::populateData(const BleScanResult *scanResult)
             default:
                 break;
             }
-            if (_record_number != prev_record)
+            if (_eventCallback && _record_number != prev_record)
                 _eventCallback(*this, (lairdbt510_event_type)buf[14]);
         }
         if (_alarmCallback != nullptr) {
