@@ -38,7 +38,7 @@ void LairdBt510::populateData(const BleScanResult *scanResult)
             case lairdbt510_event_type::BATTERY_BAD:
                 _batt_voltage = buf[22] << 8 | buf[21];
                 break;
-            case lairdbt510_event_type::RESET:      // Reset
+            case lairdbt510_event_type::RESET:
                 break;
             default:
                 break;
@@ -85,6 +85,10 @@ bool LairdBt510::isBeacon(const BleScanResult *scanResult)
 void LairdBt510::toJson(JSONWriter *writer) const
 {
         writer->name(address.toString()).beginObject();
+        writer->name("magnet_near").value(magnetNear());
+        writer->name("temp").value(getTemperature());
+        writer->name("record").value(getRecordNumber());
+        writer->name("batt").value(getBattVoltage());
         writer->name("rssi").value(getRssi());
         writer->endObject();
 }

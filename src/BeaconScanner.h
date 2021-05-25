@@ -190,9 +190,11 @@ private:
   static void scan_thread(void* param);
   void publish(int type);
   void customScan(uint16_t interval);
+  void processScan(Vector<BleScanResult> scans);
   BeaconScanCallback _callback;
   CustomBeaconCallback _customCallback;
   Beaconscanner() :
+      _memory_saver(false),
       _run(false),
       _scan_done(false),
       _clear_missed(1),
