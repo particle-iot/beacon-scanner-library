@@ -4,6 +4,8 @@
 #include "beacon.h"
 
 class LairdBt510;
+class LairdBt510Config;
+class JSONVectorWriter;
 
 enum class lairdbt510_event_type {
     TEMPERATURE         = 1,
@@ -42,26 +44,56 @@ class LairdBt510 : public Beacon
 {
 public:
     LairdBt510() : 
-        Beacon(SCAN_LAIRDBT510)
+        Beacon(SCAN_LAIRDBT510),
+        configId(0)
         { };
     ~LairdBt510() = default;
 
-    static bool isBeacon(const BleScanResult *scanResult);
-    void populateData(const BleScanResult *scanResult) override;
     void toJson(JSONWriter *writer) const override;
+
+    // Register callbacks for events and alarms
     static void setEventCallback(LairdBt510EventCallback callback) { LairdBt510::_eventCallback = callback; };
     static void setAlarmCallback(LairdBt510EventCallback callback) { LairdBt510::_alarmCallback = callback; };
 
+    // Get the sensor data
     int16_t getTemperature() const { return _temp; };
     bool magnetNear() const {return !_magnet_state;};
     uint16_t getRecordNumber() const { return _record_number; };
     uint16_t getBattVoltage() const { return _batt_voltage; };
+
+    // For library use
+    static bool isBeacon(const BleScanResult *scanResult);
+    void populateData(const BleScanResult *scanResult) override;
+
+    uint16_t configId;
 
 private:
     int16_t _temp;
     uint16_t _record_number, _batt_voltage;
     bool _magnet_event, _magnet_state, _movement;
     static LairdBt510EventCallback _eventCallback, _alarmCallback;
+};
+
+class LairdBt510Config {
+public:
+    LairdBt510Config():
+        name_(nullptr),
+        tempSenseInterval_(0xFFFFFFFF),
+        state_(CONNECTING)
+        {};
+    LairdBt510Config& sensorName(const char* name) { name_ = name; return *this; };
+    LairdBt510Config& tempSenseInterval(uint32_t seconds) { tempSenseInterval_ = seconds; return *this; };
+    bool apply(LairdBt510& device);
+    bool waitOnResp_, waitOnPair_;
+protected:
+    const char* name_;
+    uint32_t tempSenseInterval_;
+    static void onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context);
+    static void onPairingEvent(const BlePairingEvent& event, void* context);
+    void createJson(JSONVectorWriter& writer, LairdBt510& device) const;
+    enum State: uint8_t {
+        CONNECTING, PAIRING, SENDING, RECEIVING, DONE
+    } state_;
 };
 
 #endif

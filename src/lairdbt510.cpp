@@ -92,3 +92,98 @@ void LairdBt510::toJson(JSONWriter *writer) const
         writer->name("rssi").value(getRssi());
         writer->endObject();
 }
+
+class JSONVectorWriter: public JSONWriter {
+public:
+    JSONVectorWriter(): v_(Vector<char>()) {}
+    Vector<char> vector() const {return v_;}
+    size_t vectorSize() const {return v_.size();}
+
+protected:
+    virtual void write(const char *data, size_t size) override {
+        v_.append(data, (int)size);
+    }
+
+private:
+    Vector<char> v_;
+};
+
+void LairdBt510Config::onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context) {
+    LairdBt510Config* ctx = (LairdBt510Config*)context;
+    Log.trace("Received %d bytes", size);
+    ctx->state_ = DONE;
+}
+
+void LairdBt510Config::onPairingEvent(const BlePairingEvent& event, void* context) {
+    LairdBt510Config* ctx = (LairdBt510Config*)context;
+    Log.trace("Pairing event: %d", (uint8_t)event.type);
+    BLE.setPairingPasskey(event.peer, (uint8_t *)"123456");
+    if (event.type == BlePairingEventType::STATUS_UPDATED) {
+        Log.trace("remove semaphore");
+        ctx->state_ = SENDING;
+    }
+}
+
+bool LairdBt510Config::apply(LairdBt510& device) {
+    BLE.onPairingEvent(onPairingEvent, this);
+    BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
+    BlePeerDevice peer;
+    uint8_t timeout = 0;
+    BleCharacteristic tx, rx;
+    bool ret_val = false;
+    Log.trace("test");
+    while (true)
+    {
+        State prev_state = state_;
+        switch (state_)
+        {
+        case CONNECTING:
+            peer = BLE.connect(device.getAddress());
+            if (peer.connected()) {
+                state_ = PAIRING;
+            }
+            Log.trace("State connecting");
+            break;
+        case PAIRING:
+            BLE.startPairing(peer);
+            Log.trace("Pairing");
+            break;
+        case SENDING:
+        {
+            JSONVectorWriter writer;
+            createJson(writer, device);
+            peer.getCharacteristicByUUID(rx, BleUuid("569a2001-b87f-490c-92cb-11ba5ea5167c"));
+            peer.getCharacteristicByUUID(tx, BleUuid("569a2000-b87f-490c-92cb-11ba5ea5167c"));
+            tx.onDataReceived(onDataReceived, this);
+            tx.subscribe(true);
+            Log.trace("set value return: %d",rx.setValue(reinterpret_cast<const uint8_t*>(writer.vector().data()), writer.vectorSize(), BleTxRxType::ACK));
+            state_ = RECEIVING;
+            break;
+        }
+        case RECEIVING:
+            break;
+        case DONE:
+            ret_val = true;
+            break;
+        }
+        if (ret_val) {
+            peer.disconnect();
+            return true;
+        }
+        if (state_ == prev_state) delay(1000);
+    }
+    return false;
+}
+
+void LairdBt510Config::createJson(JSONVectorWriter& writer, LairdBt510& device) const {
+    writer.beginObject();
+    writer.name("jsonrpc").value("2.0");
+    writer.name("method").value("set");
+    writer.name("params").beginObject();
+    if (name_ != nullptr) writer.name("sensorName").value(name_);
+    if (tempSenseInterval_ <= 86400) writer.name("temperatureSenseInterval").value((unsigned int)tempSenseInterval_);
+    writer.endObject();
+    writer.name("id").value(++device.configId);
+    writer.endObject();
+    writer.vector().append((char)0);
+}
