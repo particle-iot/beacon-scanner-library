@@ -53,6 +53,7 @@ int configDevice(String command) {
   JSONValue obj = JSONValue::parseCopy(command);
   JSONObjectIterator iter(obj);
   LairdBt510Config config;
+  BleAddress address;
   while(iter.next()) {
     if (iter.name() == "sensorName") {
       config.sensorName(iter.value().toString().data());
@@ -60,8 +61,19 @@ int configDevice(String command) {
     else if (iter.name() == "temperatureSenseInterval") {
       config.tempSenseInterval(iter.value().toInt());
     }
+    else if (iter.name() == "sensorAddress") {
+      auto addressString = String(iter.value().toString().data());
+      address.set(addressString, BleAddressType::RANDOM_STATIC);
+      Log.info("Only targeting %s", address.toString().c_str());
+    }
   }
   for (auto& i : Scanner.getLairdBt510()) {
+    auto addDevice = i.getAddress();
+    if (address.isValid() && (address != addDevice)) {
+      // Stop configuring the particular device if address is given and is not matched
+      continue;
+    }
+    Log.info("Configuring %s", addDevice.toString().c_str());
     i.configure(config);
   }
   return 0;
