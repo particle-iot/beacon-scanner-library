@@ -7,6 +7,20 @@ class LairdBt510;
 class LairdBt510Config;
 class JSONVectorWriter;
 
+class LairdBt510Config {
+public:
+    LairdBt510Config():
+        name_(nullptr),
+        tempSenseInterval_(0xFFFFFFFF)
+        {};
+    LairdBt510Config& sensorName(const char* name) { name_ = name; return *this; };
+    LairdBt510Config& tempSenseInterval(uint32_t seconds) { tempSenseInterval_ = seconds; return *this; };
+    void createJson(JSONVectorWriter& writer, uint16_t& configId) const;
+protected:
+    const char* name_;
+    uint32_t tempSenseInterval_;
+};
+
 enum class lairdbt510_event_type {
     TEMPERATURE         = 1,
     MAGNET_PROXIMITY    = 2,
@@ -45,7 +59,9 @@ class LairdBt510 : public Beacon
 public:
     LairdBt510() : 
         Beacon(SCAN_LAIRDBT510),
-        configId(0)
+        state_(IDLE),
+        prev_state_(IDLE),
+        configId_(0)
         { };
     ~LairdBt510() = default;
 
@@ -61,39 +77,27 @@ public:
     uint16_t getRecordNumber() const { return _record_number; };
     uint16_t getBattVoltage() const { return _batt_voltage; };
 
-    // For library use
-    static bool isBeacon(const BleScanResult *scanResult);
-    void populateData(const BleScanResult *scanResult) override;
-
-    uint16_t configId;
+    // Configure the device
+    bool configure(LairdBt510Config config);
 
 private:
+    friend class Beaconscanner;
+    void loop();
+    static bool isBeacon(const BleScanResult *scanResult);
+    void populateData(const BleScanResult *scanResult) override;
     int16_t _temp;
     uint16_t _record_number, _batt_voltage;
     bool _magnet_event, _magnet_state, _movement;
     static LairdBt510EventCallback _eventCallback, _alarmCallback;
-};
-
-class LairdBt510Config {
-public:
-    LairdBt510Config():
-        name_(nullptr),
-        tempSenseInterval_(0xFFFFFFFF),
-        state_(CONNECTING)
-        {};
-    LairdBt510Config& sensorName(const char* name) { name_ = name; return *this; };
-    LairdBt510Config& tempSenseInterval(uint32_t seconds) { tempSenseInterval_ = seconds; return *this; };
-    bool apply(LairdBt510& device);
-    bool waitOnResp_, waitOnPair_;
-protected:
-    const char* name_;
-    uint32_t tempSenseInterval_;
     static void onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context);
     static void onPairingEvent(const BlePairingEvent& event, void* context);
-    void createJson(JSONVectorWriter& writer, LairdBt510& device) const;
     enum State: uint8_t {
-        CONNECTING, PAIRING, SENDING, RECEIVING, DONE
-    } state_;
+        IDLE, CONNECTING, PAIRING, SENDING, DISCONNECT, RECEIVING
+    } state_, prev_state_;
+    BlePeerDevice peer_;
+    BleCharacteristic tx, rx;
+    LairdBt510Config config_;
+    uint16_t configId_;
 };
 
 #endif

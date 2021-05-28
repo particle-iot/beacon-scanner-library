@@ -312,11 +312,12 @@ void Beaconscanner::loop() {
     }
 #endif
 #ifdef SUPPORT_LAIRDBT510
-    for (auto& l : lBeacons) {
+    for (LairdBt510& l : lBeacons) {
         if (_callback && l.newly_scanned) {
             _callback(l, NEW);
             l.newly_scanned = false;
         }
+        l.loop();
     }
 #endif
 
@@ -332,6 +333,14 @@ void Beaconscanner::loop() {
                 i.missed_scan++;
             }
         }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < iBeacons.size(); i++) {
+                if (iBeacons.at(i).missed_scan < 0) {
+                    iBeacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
 #endif
 #ifdef SUPPORT_EDDYSTONE
         for (auto& e : eBeacons) {
@@ -342,6 +351,14 @@ void Beaconscanner::loop() {
                 e.missed_scan = -1;
             } else {
                 e.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < eBeacons.size(); i++) {
+                if (eBeacons.at(i).missed_scan < 0) {
+                    eBeacons.removeAt(i);
+                    i--;
+                }
             }
         }
 #endif
@@ -356,38 +373,7 @@ void Beaconscanner::loop() {
                 k.missed_scan++;
             }
         }
-#endif
-#ifdef SUPPORT_LAIRDBT510
-        for (auto& l : lBeacons) {
-            if (l.missed_scan >= _clear_missed) {
-                if (_callback) {
-                    _callback(l, REMOVED);
-                }
-                l.missed_scan = -1;
-            } else {
-                l.missed_scan++;
-            }
-        }
-#endif
-
         SINGLE_THREADED_BLOCK() {
-#ifdef SUPPORT_IBEACON
-            for (int i = 0; i < iBeacons.size(); i++) {
-                if (iBeacons.at(i).missed_scan < 0) {
-                    iBeacons.removeAt(i);
-                    i--;
-                }
-            }
-#endif
-#ifdef SUPPORT_EDDYSTONE
-            for (int i = 0; i < eBeacons.size(); i++) {
-                if (eBeacons.at(i).missed_scan < 0) {
-                    eBeacons.removeAt(i);
-                    i--;
-                }
-            }
-#endif
-#ifdef SUPPORT_KONTAKT
             for (int i = 0; i < kSensors.size(); i++) {
                 if (kSensors.at(i).missed_scan < 0) {
                     kSensors.removeAt(i);
@@ -397,12 +383,24 @@ void Beaconscanner::loop() {
         }
 #endif
 #ifdef SUPPORT_LAIRDBT510
+        for (auto& l : lBeacons) {
+            if (l.state_ == LairdBt510::State::IDLE && l.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(l, REMOVED);
+                }
+                l.missed_scan = -1;
+            } else {
+                l.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
             for (int i = 0; i < lBeacons.size(); i++) {
                 if (lBeacons.at(i).missed_scan < 0) {
                     lBeacons.removeAt(i);
                     i--;
                 }
             }
+        }
 #endif
         _scan_done = false;
     }

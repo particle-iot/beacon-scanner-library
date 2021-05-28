@@ -49,11 +49,31 @@ void alarmCallback(LairdBt510& beacon, lairdbt510_event_type alarm) {
   }
 }
 
+int configDevice(String command) {
+  JSONValue obj = JSONValue::parseCopy(command);
+  JSONObjectIterator iter(obj);
+  LairdBt510Config config;
+  while(iter.next()) {
+    if (iter.name() == "sensorName") {
+      config.sensorName(iter.value().toString().data());
+    }
+    else if (iter.name() == "temperatureSenseInterval") {
+      config.tempSenseInterval(iter.value().toInt());
+    }
+  }
+  for (auto& i : Scanner.getLairdBt510()) {
+    i.configure(config);
+  }
+  return 0;
+}
+
 void setup() {
+  Particle.connect();
   BLE.on();
   Scanner.startContinuous();
   LairdBt510::setEventCallback(eventCallback);
   LairdBt510::setAlarmCallback(alarmCallback);
+  Particle.function("lairdBt510Config", configDevice);
 }
 
 void loop() {

@@ -146,16 +146,16 @@ public:
    * 
    */
 #ifdef SUPPORT_KONTAKT
-  Vector<KontaktTag> getKontaktTags() {return kSensors;};
+  Vector<KontaktTag>& getKontaktTags() {return kSensors;};
 #endif
 #ifdef SUPPORT_IBEACON
-  Vector<iBeaconScan> getiBeacons() {return iBeacons;};
+  Vector<iBeaconScan>& getiBeacons() {return iBeacons;};
 #endif
 #ifdef SUPPORT_EDDYSTONE
-  Vector<Eddystone> getEddystone() {return eBeacons;};
+  Vector<Eddystone>& getEddystone() {return eBeacons;};
 #endif
 #ifdef SUPPORT_LAIRDBT510
-  Vector<LairdBt510> getLairdBt510() {return lBeacons;};
+  Vector<LairdBt510>& getLairdBt510() {return lBeacons;};
 #endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);

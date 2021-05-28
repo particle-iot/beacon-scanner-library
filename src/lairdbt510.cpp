@@ -96,6 +96,7 @@ void LairdBt510::toJson(JSONWriter *writer) const
 class JSONVectorWriter: public JSONWriter {
 public:
     JSONVectorWriter(): v_(Vector<char>()) {}
+    ~JSONVectorWriter() = default;
     Vector<char> vector() const {return v_;}
     size_t vectorSize() const {return v_.size();}
 
@@ -108,74 +109,78 @@ private:
     Vector<char> v_;
 };
 
-void LairdBt510Config::onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context) {
-    LairdBt510Config* ctx = (LairdBt510Config*)context;
+void LairdBt510::onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context) {
+    LairdBt510* ctx = (LairdBt510*)context;
     Log.trace("Received %d bytes", size);
-    ctx->state_ = DONE;
+    ctx->state_ = DISCONNECT;
 }
 
-void LairdBt510Config::onPairingEvent(const BlePairingEvent& event, void* context) {
-    LairdBt510Config* ctx = (LairdBt510Config*)context;
+void LairdBt510::onPairingEvent(const BlePairingEvent& event, void* context) {
+    LairdBt510* ctx = (LairdBt510*)context;
     Log.trace("Pairing event: %d", (uint8_t)event.type);
     BLE.setPairingPasskey(event.peer, (uint8_t *)"123456");
     if (event.type == BlePairingEventType::STATUS_UPDATED) {
-        Log.trace("remove semaphore");
         ctx->state_ = SENDING;
     }
 }
 
-bool LairdBt510Config::apply(LairdBt510& device) {
-    BLE.onPairingEvent(onPairingEvent, this);
-    BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
-    BlePeerDevice peer;
-    uint8_t timeout = 0;
-    BleCharacteristic tx, rx;
-    bool ret_val = false;
-    Log.trace("test");
-    while (true)
-    {
-        State prev_state = state_;
+void LairdBt510::loop() {
+    unsigned int timer = System.uptime();
+    if (state_ != prev_state_ || timer != System.uptime()) {
+        prev_state_ = state_;
         switch (state_)
         {
         case CONNECTING:
-            peer = BLE.connect(device.getAddress());
-            if (peer.connected()) {
+            peer_ = BLE.connect(getAddress());
+            if (peer_.connected()) {
                 state_ = PAIRING;
             }
             Log.trace("State connecting");
             break;
         case PAIRING:
-            BLE.startPairing(peer);
+            BLE.startPairing(peer_);
             Log.trace("Pairing");
             break;
         case SENDING:
         {
-            JSONVectorWriter writer;
-            createJson(writer, device);
-            peer.getCharacteristicByUUID(rx, BleUuid("569a2001-b87f-490c-92cb-11ba5ea5167c"));
-            peer.getCharacteristicByUUID(tx, BleUuid("569a2000-b87f-490c-92cb-11ba5ea5167c"));
+            peer_.getCharacteristicByUUID(rx, BleUuid("569a2001-b87f-490c-92cb-11ba5ea5167c"));
+            peer_.getCharacteristicByUUID(tx, BleUuid("569a2000-b87f-490c-92cb-11ba5ea5167c"));
             tx.onDataReceived(onDataReceived, this);
             tx.subscribe(true);
-            Log.trace("set value return: %d",rx.setValue(reinterpret_cast<const uint8_t*>(writer.vector().data()), writer.vectorSize(), BleTxRxType::ACK));
+            JSONVectorWriter writer_;
+            config_.createJson(writer_, configId_);
+            Log.trace("set value return: %d",rx.setValue(reinterpret_cast<const uint8_t*>(writer_.vector().data()), writer_.vectorSize(), BleTxRxType::ACK));
             state_ = RECEIVING;
             break;
         }
         case RECEIVING:
             break;
-        case DONE:
-            ret_val = true;
+        case DISCONNECT:
+            peer_.disconnect();
+            state_ = IDLE;
+            break;
+        case IDLE:
             break;
         }
-        if (ret_val) {
-            peer.disconnect();
-            return true;
-        }
-        if (state_ == prev_state) delay(1000);
+        timer = System.uptime();
     }
-    return false;
 }
 
-void LairdBt510Config::createJson(JSONVectorWriter& writer, LairdBt510& device) const {
+bool LairdBt510::configure(LairdBt510Config config) {
+    if (state_ == IDLE) {
+        BLE.onPairingEvent(onPairingEvent, this);
+        BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
+        config_ = config;
+        state_ = CONNECTING;
+        Log.trace("Set to connecting state %d", state_);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) const {
     writer.beginObject();
     writer.name("jsonrpc").value("2.0");
     writer.name("method").value("set");
@@ -183,7 +188,7 @@ void LairdBt510Config::createJson(JSONVectorWriter& writer, LairdBt510& device) 
     if (name_ != nullptr) writer.name("sensorName").value(name_);
     if (tempSenseInterval_ <= 86400) writer.name("temperatureSenseInterval").value((unsigned int)tempSenseInterval_);
     writer.endObject();
-    writer.name("id").value(++device.configId);
+    writer.name("id").value(++configId);
     writer.endObject();
     writer.vector().append((char)0);
 }
