@@ -122,19 +122,25 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
 #ifdef SUPPORT_LAIRDBT510
         else if ((_flags & SCAN_LAIRDBT510) && LairdBt510::isBeacon(scanResult) && !lPublished.contains(ADDRESS(scanResult)))
         {
-            LairdBt510 new_beacon;
-            for (uint8_t i = 0; i < lBeacons.size(); i++)
+            uint8_t i;
+            for (i = 0; i < lBeacons.size(); ++i)
             {
                 if (lBeacons.at(i).getAddress() == ADDRESS(scanResult))
                 {
-                    new_beacon = lBeacons.takeAt(i);
-                    new_beacon.newly_scanned = false;
                     break;              
                 }
             }
-            new_beacon.populateData(scanResult);
-            new_beacon.missed_scan = 0;
-            lBeacons.append(new_beacon);
+            if(i == lBeacons.size()) {
+                LairdBt510 new_beacon;
+                new_beacon.populateData(scanResult);
+                new_beacon.missed_scan = 0;
+                lBeacons.append(new_beacon);
+            } else {
+                LairdBt510& beacon = lBeacons.at(i);
+                beacon.newly_scanned = false;
+                beacon.populateData(scanResult);
+                beacon.missed_scan = 0;
+            }
         }
 #endif 
         else if (_customCallback) {
