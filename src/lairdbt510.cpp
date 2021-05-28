@@ -112,6 +112,10 @@ private:
 void LairdBt510::onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context) {
     LairdBt510* ctx = (LairdBt510*)context;
     Log.trace("Received %d bytes", size);
+    uint8_t buf[size+1];
+    memcpy(buf, data, size);
+    buf[size] = 0;
+    Log.trace((char*)buf);
     ctx->state_ = DISCONNECT;
 }
 
@@ -180,12 +184,18 @@ bool LairdBt510::configure(LairdBt510Config config) {
     }
 }
 
+LairdBt510Config& LairdBt510Config::sensorName(const char* name) {
+    name_.clear();
+    name_.append(name, strlen(name)+1);
+    return *this;
+}
+
 void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) const {
     writer.beginObject();
     writer.name("jsonrpc").value("2.0");
     writer.name("method").value("set");
     writer.name("params").beginObject();
-    if (name_ != nullptr) writer.name("sensorName").value(name_);
+    if (!name_.isEmpty()) writer.name("sensorName").value(name_.data());
     if (tempSenseInterval_ <= 86400) writer.name("temperatureSenseInterval").value((unsigned int)tempSenseInterval_);
     writer.endObject();
     writer.name("id").value(++configId);

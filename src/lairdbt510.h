@@ -10,14 +10,15 @@ class JSONVectorWriter;
 class LairdBt510Config {
 public:
     LairdBt510Config():
-        name_(nullptr),
+        name_(Vector<char>()),
         tempSenseInterval_(0xFFFFFFFF)
         {};
-    LairdBt510Config& sensorName(const char* name) { name_ = name; return *this; };
+    ~LairdBt510Config() = default;
+    LairdBt510Config& sensorName(const char* name);
     LairdBt510Config& tempSenseInterval(uint32_t seconds) { tempSenseInterval_ = seconds; return *this; };
     void createJson(JSONVectorWriter& writer, uint16_t& configId) const;
 protected:
-    const char* name_;
+    Vector<char> name_;
     uint32_t tempSenseInterval_;
 };
 
