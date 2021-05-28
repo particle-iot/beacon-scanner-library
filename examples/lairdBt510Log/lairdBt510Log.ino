@@ -1,5 +1,5 @@
 #include "Particle.h"
-#include "Beaconscanner.h"
+#include "BeaconScanner.h"
 
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
