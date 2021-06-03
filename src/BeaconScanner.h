@@ -70,6 +70,11 @@ public:
    */
   void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
 
+
+  void setFastScanParams();
+  void fastScan(uint32_t maxDurationMs = 1000, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void clearFastScanList();
+
   /**
    * The device will continuously scan on a separate thread, not blocking the main application. The
    * beacons will be stored in the corresponding Vectors.
@@ -190,6 +195,8 @@ private:
   static void scan_thread(void* param);
   void publish(int type);
   void customScan(uint16_t interval);
+  void doFastScan(system_tick_t max_ms);
+
   void processScan(Vector<BleScanResult> scans);
   BeaconScanCallback _callback;
   CustomBeaconCallback _customCallback;

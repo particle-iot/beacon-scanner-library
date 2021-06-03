@@ -38,6 +38,17 @@ String Beaconscanner::getJson(Vector<T>* beacons, uint8_t count, void *context)
     return String::format("%.*s", ctx->writer->dataSize(), ctx->writer->buffer());
 }
 
+void Beaconscanner::setFastScanParams() {
+    BleScanParams scanParams;
+    scanParams.size = sizeof(BleScanParams);
+    scanParams.interval = 80;   // 50ms
+    scanParams.window = 40;     // 25ms
+    scanParams.timeout = 15;    // 150ms
+    scanParams.active = false;
+    scanParams.filter_policy = BLE_SCAN_FP_ACCEPT_ALL;
+    BLE.setScanParameters(&scanParams); 
+}
+
 void custom_scan_params() {
     /*
      *  The callback appears to be called just once per MAC address per BLE.scan(callback) call.
@@ -146,6 +157,37 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
         else if (_customCallback) {
             _customCallback(scanResult);
         }
+    }
+}
+
+
+void Beaconscanner::clearFastScanList() {
+#ifdef SUPPORT_KONTAKT
+    kPublished.clear();
+    kSensors.clear();
+#endif
+#ifdef SUPPORT_IBEACON
+    iPublished.clear();
+    iBeacons.clear();
+#endif
+#ifdef SUPPORT_EDDYSTONE
+    ePublished.clear();
+    eBeacons.clear();
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    lPublished.clear();
+    lBeacons.clear();
+#endif
+}
+
+void Beaconscanner::doFastScan(system_tick_t max_ms) {
+    system_tick_t start_millis = millis();
+    while ( (millis() - start_millis) < max_ms) {
+        Vector<BleScanResult> cur_responses = BLE.scan();
+        if (0 == cur_responses.size()) {
+            break;
+        }
+        processScan(cur_responses);
     }
 }
 
@@ -262,6 +304,14 @@ void Beaconscanner::scan(uint16_t duration, int flags)
     _flags = flags;
     customScan(duration);
 }
+  
+void Beaconscanner::fastScan(uint32_t maxDurationMs, int flags) {
+        if (_run) return;
+    _publish= false;
+    _flags = flags;
+    doFastScan(maxDurationMs);
+}
+
 
 void Beaconscanner::scan_thread(void *param) {
     while(true) {
