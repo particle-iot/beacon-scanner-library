@@ -138,6 +138,7 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
             {
                 if (lBeacons.at(i).getAddress() == ADDRESS(scanResult))
                 {
+                    Log.info("exiting early on i=%u / ",i,lBeacons.size());
                     break;              
                 }
             }
@@ -180,15 +181,18 @@ void Beaconscanner::clearFastScanList() {
 #endif
 }
 
-void Beaconscanner::doFastScan(system_tick_t max_ms) {
-    system_tick_t start_millis = millis();
-    while ( (millis() - start_millis) < max_ms) {
-        Vector<BleScanResult> cur_responses = BLE.scan();
-        if (0 == cur_responses.size()) {
-            break;
-        }
+
+Vector<BleScanResult> Beaconscanner::fastScanOnce() {
+    Vector<BleScanResult> cur_responses = BLE.scan();
+    return cur_responses;
+}
+
+void Beaconscanner::continueFastScan() {
+    Vector<BleScanResult> cur_responses = fastScanOnce();
+    if (cur_responses.size() > 0) {
         processScan(cur_responses);
     }
+
 }
 
 void Beaconscanner::customScan(uint16_t duration)
@@ -305,11 +309,12 @@ void Beaconscanner::scan(uint16_t duration, int flags)
     customScan(duration);
 }
   
-void Beaconscanner::fastScan(uint32_t maxDurationMs, int flags) {
-        if (_run) return;
-    _publish= false;
+void Beaconscanner::startFastScan(int flags) {
+    if (_run) return;
+    _publish = false;
     _flags = flags;
-    doFastScan(maxDurationMs);
+
+
 }
 
 

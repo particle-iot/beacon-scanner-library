@@ -72,7 +72,8 @@ public:
 
 
   void setFastScanParams();
-  void fastScan(uint32_t maxDurationMs = 1000, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void startFastScan(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void continueFastScan();
   void clearFastScanList();
 
   /**
@@ -173,6 +174,8 @@ private:
   uint8_t _clear_missed, _scan_period;
   PublishFlags _pFlags;
   const char* _eventName;
+  uint32_t _fast_scan_start_ms;
+  uint32_t _fast_scan_max_ms;
 #ifdef SUPPORT_KONTAKT
   Vector<KontaktTag> kSensors;
   Vector<BleAddress> kPublished;
@@ -195,7 +198,8 @@ private:
   static void scan_thread(void* param);
   void publish(int type);
   void customScan(uint16_t interval);
-  void doFastScan(system_tick_t max_ms);
+  
+  Vector<BleScanResult> fastScanOnce();
 
   void processScan(Vector<BleScanResult> scans);
   BeaconScanCallback _callback;
