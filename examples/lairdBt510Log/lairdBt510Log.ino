@@ -61,6 +61,24 @@ int configDevice(String command) {
     else if (iter.name() == "temperatureSenseInterval") {
       config.tempSenseInterval(iter.value().toInt());
     }
+    else if (iter.name() == "batterySenseInterval") {
+      config.battSenseInterval(iter.value().toInt());
+    }
+    else if (iter.name() == "highTemperatureAlarmThreshold1") {
+      config.highTempAlarm1(iter.value().toInt());
+    }
+    else if (iter.name() == "highTemperatureAlarmThreshold2") {
+      config.highTempAlarm2(iter.value().toInt());
+    }
+    else if (iter.name() == "lowTemperatureAlarmThreshold1") {
+      config.lowTempAlarm1(iter.value().toInt());
+    }
+    else if (iter.name() == "lowTemperatureAlarmThreshold2") {
+      config.lowTempAlarm2(iter.value().toInt());
+    }
+    else if (iter.name() == "deltaTemperatureAlarmThreshold") {
+      config.deltaTempAlarm(iter.value().toInt());
+    }
     else if (iter.name() == "sensorAddress") {
       auto addressString = String(iter.value().toString().data());
       address.set(addressString, BleAddressType::RANDOM_STATIC);

@@ -135,7 +135,7 @@ void LairdBt510::loop() {
         switch (state_)
         {
         case CONNECTING:
-            peer_ = BLE.connect(getAddress());
+            peer_ = BLE.connect(getAddress(), false);
             if (peer_.connected()) {
                 state_ = PAIRING;
             }
@@ -147,12 +147,19 @@ void LairdBt510::loop() {
             break;
         case SENDING:
         {
+            peer_.discoverAllServices();
+            peer_.discoverAllCharacteristics();
             peer_.getCharacteristicByUUID(rx, BleUuid("569a2001-b87f-490c-92cb-11ba5ea5167c"));
             peer_.getCharacteristicByUUID(tx, BleUuid("569a2000-b87f-490c-92cb-11ba5ea5167c"));
             tx.onDataReceived(onDataReceived, this);
             tx.subscribe(true);
             JSONVectorWriter writer_;
             config_.createJson(writer_, configId_);
+            char buf[writer_.vectorSize()];
+            for (size_t i = 0; i < writer_.vectorSize(); ++i) {
+                buf[i] = writer_.vector().at(i);
+            }
+            Log.trace("Send value: %s", buf);
             Log.trace("set value return: %d",rx.setValue(reinterpret_cast<const uint8_t*>(writer_.vector().data()), writer_.vectorSize(), BleTxRxType::ACK));
             state_ = RECEIVING;
             break;
@@ -186,7 +193,40 @@ bool LairdBt510::configure(LairdBt510Config config) {
 
 LairdBt510Config& LairdBt510Config::sensorName(const char* name) {
     name_.clear();
-    name_.append(name, strlen(name)+1);
+    name_.append(name, std::min(strlen(name)+1, (size_t)23));
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::tempSenseInterval(uint32_t seconds) {
+    if (seconds <= 86400) tempSenseInterval_ = seconds; 
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::battSenseInterval(uint32_t seconds) {
+    if (seconds <= 86400) battSenseInterval_ = seconds; 
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::highTempAlarm1(int8_t celsius) {
+    configFlags_ = (configFlags_ | ConfigHighTempAlarm1);
+    highTempAlarm1_ = celsius;
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::highTempAlarm2(int8_t celsius) {
+    configFlags_ = (configFlags_ | ConfigHighTempAlarm2);
+    highTempAlarm2_ = celsius;
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::lowTempAlarm1(int8_t celsius) {
+    configFlags_ = (configFlags_ | ConfigLowTempAlarm1);
+    lowTempAlarm1_ = celsius;
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::lowTempAlarm2(int8_t celsius) {
+    configFlags_ = (configFlags_ | ConfigLowTempAlarm2);
+    lowTempAlarm2_ = celsius;
+    return *this;
+}
+LairdBt510Config& LairdBt510Config::deltaTempAlarm(uint8_t celsius) {
+    configFlags_ = (configFlags_ | ConfigDeltaTempAlarm);
+    deltaTempAlarm_ = celsius;
     return *this;
 }
 
@@ -197,8 +237,24 @@ void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) 
     writer.name("params").beginObject();
     if (!name_.isEmpty()) writer.name("sensorName").value(name_.data());
     if (tempSenseInterval_ <= 86400) writer.name("temperatureSenseInterval").value((unsigned int)tempSenseInterval_);
+    if (battSenseInterval_ <= 86400) writer.name("batterySenseInterval").value((unsigned int)battSenseInterval_);
+    if (configFlags_ & ConfigHighTempAlarm1) writer.name("highTemperatureAlarmThreshold1").value((int)highTempAlarm1_);
+    if (configFlags_ & ConfigHighTempAlarm2) writer.name("highTemperatureAlarmThreshold2").value((int)highTempAlarm2_);
+    if (configFlags_ & ConfigLowTempAlarm1) writer.name("lowTemperatureAlarmThreshold1").value((int)lowTempAlarm1_);
+    if (configFlags_ & ConfigLowTempAlarm2) writer.name("lowTemperatureAlarmThreshold2").value((int)lowTempAlarm2_);
+    if (configFlags_ & ConfigDeltaTempAlarm) writer.name("deltaTemperatureAlarmThreshold").value((unsigned)deltaTempAlarm_);
     writer.endObject();
     writer.name("id").value(++configId);
     writer.endObject();
     writer.vector().append((char)0);
 }
+
+LairdBt510Config::LairdBt510Config():
+        name_(Vector<char>()),
+        tempSenseInterval_(0xFFFFFFFF),
+        battSenseInterval_(0xFFFFFFFF),
+        advInterval_(0xFFFF),
+        connTimeout_(0xFFFF),
+        tempAggregationCount_(0xFF),
+        configFlags_(Bt510ConfigFields::NONE)
+        {};

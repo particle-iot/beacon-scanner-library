@@ -9,17 +9,80 @@ class JSONVectorWriter;
 
 class LairdBt510Config {
 public:
-    LairdBt510Config():
-        name_(Vector<char>()),
-        tempSenseInterval_(0xFFFFFFFF)
-        {};
+    LairdBt510Config();
     ~LairdBt510Config() = default;
+    /**
+     * Set the name of the sensor. 23 characters max
+     */
     LairdBt510Config& sensorName(const char* name);
-    LairdBt510Config& tempSenseInterval(uint32_t seconds) { tempSenseInterval_ = seconds; return *this; };
+    /**
+     * Set the interval at which the sensor reads the
+     * temperature.
+     * @param seconds valid value between 0 and 86400
+     */
+    LairdBt510Config& tempSenseInterval(uint32_t seconds);
+    /**
+     * Set the interval at which the sensor reads the
+     * battery voltage.
+     * @param seconds valid value between 0 and 86400
+     */
+    LairdBt510Config& battSenseInterval(uint32_t seconds);
+    /**
+     * Set the threshold above which Alarm1 will be triggered
+     * @param celsius between -128 and 127
+     */
+    LairdBt510Config& highTempAlarm1(int8_t celsius);
+    /**
+     * Set the threshold above which Alarm2 will be triggered.
+     * This value must be higher than Alarm1 threshold, as 
+     * that one is checked first.
+     * @param celsius between -128 and 127
+     */
+    LairdBt510Config& highTempAlarm2(int8_t celsius);
+    /**
+     * Set the threshold below which Alarm1 will be triggered
+     * @param celsius between -128 and 127
+     */
+    LairdBt510Config& lowTempAlarm1(int8_t celsius);
+    /**
+     * Set the threshold below which Alarm2 will be triggered.
+     * This value must be lower than Alarm2 threshold, as
+     * that one is checked first.
+     * @param celsius between -128 and 127
+     */
+    LairdBt510Config& lowTempAlarm2(int8_t celsius);
+    LairdBt510Config& deltaTempAlarm(uint8_t celsius);
+    /**
+     * When greater than 1, the temperature samples are averaged
+     * @param count between 1 and 32
+     */
+    LairdBt510Config& tempAggregationCount(uint8_t count);
+    /**
+     * The interval between advertising packets.
+     * @param ms between 20 and 10000, default is 1000
+     */
+    LairdBt510Config& advertisementInterval(uint16_t ms);
+    /**
+     * The BLE connection timeout. 0 means none
+     * @param sec seconds for timeout, between 0 and 10000
+     */
+    LairdBt510Config& connectionTimeout(uint16_t sec);
     void createJson(JSONVectorWriter& writer, uint16_t& configId) const;
 protected:
-    Vector<char> name_;
-    uint32_t tempSenseInterval_;
+    Vector<char> name_, location_, passkey_;
+    uint32_t tempSenseInterval_, battSenseInterval_;
+    uint16_t advInterval_, connTimeout_;
+    uint8_t tempAggregationCount_, deltaTempAlarm_, configFlags_;
+    int8_t  highTempAlarm1_, highTempAlarm2_, lowTempAlarm1_, lowTempAlarm2_;
+    enum Bt510ConfigFields: uint8_t {
+        NONE                      = 0,
+        ConfigHighTempAlarm1      = 0x01,
+        ConfigHighTempAlarm2      = 0x02,
+        ConfigLowTempAlarm1       = 0x04,
+        ConfigLowTempAlarm2       = 0x08,
+        ConfigDeltaTempAlarm      = 0x10,
+        ConfigNetworkId           = 0x20
+    };
 };
 
 enum class lairdbt510_event_type {
