@@ -155,7 +155,7 @@ public:
   Vector<Eddystone>& getEddystone() {return eBeacons;};
 #endif
 #ifdef SUPPORT_LAIRDBT510
-  Vector<LairdBt510>& getLairdBt510() {return lBeacons;};
+  Vector<LairdBt510>& getLairdBt510() {return LairdBt510::beacons;};
 #endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
@@ -181,7 +181,6 @@ private:
   Vector<BleAddress> ePublished;
 #endif
 #ifdef SUPPORT_LAIRDBT510
-  Vector<LairdBt510> lBeacons;
   Vector<BleAddress> lPublished;
 #endif
   Thread* _thread;

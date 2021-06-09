@@ -149,12 +149,14 @@ private:
     void loop();
     static bool isBeacon(const BleScanResult *scanResult);
     void populateData(const BleScanResult *scanResult) override;
+    static Vector<LairdBt510> beacons;
     int16_t _temp;
     uint16_t _record_number, _batt_voltage;
     bool _magnet_event, _magnet_state, _movement;
     static LairdBt510EventCallback _eventCallback, _alarmCallback;
     static void onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context);
-    static void onPairingEvent(const BlePairingEvent& event, void* context);
+    static void onPairingEvent(const BlePairingEvent& event);
+    static void onDisconnected(const BlePeerDevice& peer);
     enum State: uint8_t {
         IDLE, CONNECTING, PAIRING, SENDING, DISCONNECT, RECEIVING
     } state_, prev_state_;

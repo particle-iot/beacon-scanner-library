@@ -2,6 +2,7 @@
 
 LairdBt510EventCallback LairdBt510::_eventCallback = nullptr;
 LairdBt510EventCallback LairdBt510::_alarmCallback = nullptr;
+Vector<LairdBt510> LairdBt510::beacons;
 
 void LairdBt510::populateData(const BleScanResult *scanResult)
 {
@@ -119,12 +120,39 @@ void LairdBt510::onDataReceived(const uint8_t* data, size_t size, const BlePeerD
     ctx->state_ = DISCONNECT;
 }
 
-void LairdBt510::onPairingEvent(const BlePairingEvent& event, void* context) {
-    LairdBt510* ctx = (LairdBt510*)context;
-    Log.trace("Pairing event: %d", (uint8_t)event.type);
-    BLE.setPairingPasskey(event.peer, (uint8_t *)"123456");
-    if (event.type == BlePairingEventType::STATUS_UPDATED) {
-        ctx->state_ = SENDING;
+void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
+    LairdBt510* dev = nullptr;
+    for (auto& i : beacons) {
+        if (i.getAddress() == event.peer.address()) {
+            dev = &i;
+        }
+    }
+    if (dev) {
+        switch (event.type)
+        {
+        case BlePairingEventType::PASSKEY_INPUT:
+            BLE.setPairingPasskey(event.peer, (uint8_t *)"123456");
+            Log.trace("Set pairing key for: %s", dev->getAddress().toString().c_str());
+            break;
+        case BlePairingEventType::STATUS_UPDATED:
+            dev->state_ = SENDING;
+            Log.trace("Pairing complete for: %s", dev->getAddress().toString().c_str());
+            break;
+        default:
+            Log.trace("Other pairing event: %d", (uint8_t)event.type);
+            break;
+        }
+    } else {
+        Log.trace("Pairing event, but device not found");
+    }
+}
+
+void LairdBt510::onDisconnected(const BlePeerDevice& peer) {
+    for (auto& i : beacons) {
+        if (i.getAddress() == peer.address()) {
+            i.state_ = IDLE;
+            break;
+        }
     }
 }
 
@@ -138,6 +166,8 @@ void LairdBt510::loop() {
             peer_ = BLE.connect(getAddress(), false);
             if (peer_.connected()) {
                 state_ = PAIRING;
+                BLE.onPairingEvent(onPairingEvent);
+                BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
             }
             Log.trace("State connecting");
             break;
@@ -179,8 +209,7 @@ void LairdBt510::loop() {
 
 bool LairdBt510::configure(LairdBt510Config config) {
     if (state_ == IDLE) {
-        BLE.onPairingEvent(onPairingEvent, this);
-        BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
+        BLE.onDisconnected(onDisconnected);
         config_ = config;
         state_ = CONNECTING;
         Log.trace("Set to connecting state %d", state_);

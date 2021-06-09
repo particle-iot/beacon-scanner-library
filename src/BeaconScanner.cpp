@@ -123,20 +123,20 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
         else if ((_flags & SCAN_LAIRDBT510) && LairdBt510::isBeacon(scanResult) && !lPublished.contains(ADDRESS(scanResult)))
         {
             uint8_t i;
-            for (i = 0; i < lBeacons.size(); ++i)
+            for (i = 0; i < LairdBt510::beacons.size(); ++i)
             {
-                if (lBeacons.at(i).getAddress() == ADDRESS(scanResult))
+                if (LairdBt510::beacons.at(i).getAddress() == ADDRESS(scanResult))
                 {
                     break;              
                 }
             }
-            if(i == lBeacons.size()) {
+            if(i == LairdBt510::beacons.size()) {
                 LairdBt510 new_beacon;
                 new_beacon.populateData(scanResult);
                 new_beacon.missed_scan = 0;
-                lBeacons.append(new_beacon);
+                LairdBt510::beacons.append(new_beacon);
             } else {
-                LairdBt510& beacon = lBeacons.at(i);
+                LairdBt510& beacon = LairdBt510::beacons.at(i);
                 beacon.newly_scanned = false;
                 beacon.populateData(scanResult);
                 beacon.missed_scan = 0;
@@ -166,7 +166,7 @@ void Beaconscanner::customScan(uint16_t duration)
 #endif
 #ifdef SUPPORT_LAIRDBT510
     lPublished.clear();
-    lBeacons.clear();
+    LairdBt510::beacons.clear();
 #endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
@@ -214,13 +214,13 @@ void Beaconscanner::customScan(uint16_t duration)
 #endif
 #ifdef SUPPORT_LAIRDBT510
         if (_publish && (
-            (_memory_saver && lBeacons.size() >= LAIRDBT510_CHUNK) ||
-            (!_memory_saver && lBeacons.size() >= LAIRDBT510_NONSAVER)
+            (_memory_saver && LairdBt510::beacons.size() >= LAIRDBT510_CHUNK) ||
+            (!_memory_saver && LairdBt510::beacons.size() >= LAIRDBT510_NONSAVER)
         ))
         {
             for (uint8_t i=0;i < LAIRDBT510_CHUNK;i++)
             {
-                lPublished.append(lBeacons.at(i).getAddress());
+                lPublished.append(LairdBt510::beacons.at(i).getAddress());
             }
             publish(SCAN_LAIRDBT510);
         }
@@ -250,7 +250,7 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
         publish(SCAN_EDDYSTONE);
 #endif
 #ifdef SUPPORT_LAIRDBT510
-    while (!lBeacons.isEmpty())
+    while (!LairdBt510::beacons.isEmpty())
         publish(SCAN_LAIRDBT510);
 #endif
 }
@@ -318,7 +318,7 @@ void Beaconscanner::loop() {
     }
 #endif
 #ifdef SUPPORT_LAIRDBT510
-    for (LairdBt510& l : lBeacons) {
+    for (LairdBt510& l : LairdBt510::beacons) {
         if (_callback && l.newly_scanned) {
             _callback(l, NEW);
             l.newly_scanned = false;
@@ -389,7 +389,7 @@ void Beaconscanner::loop() {
         }
 #endif
 #ifdef SUPPORT_LAIRDBT510
-        for (auto& l : lBeacons) {
+        for (auto& l : LairdBt510::beacons) {
             if (l.state_ == LairdBt510::State::IDLE && l.missed_scan >= _clear_missed) {
                 if (_callback) {
                     _callback(l, REMOVED);
@@ -400,9 +400,9 @@ void Beaconscanner::loop() {
             }
         }
         SINGLE_THREADED_BLOCK() {
-            for (int i = 0; i < lBeacons.size(); i++) {
-                if (lBeacons.at(i).missed_scan < 0) {
-                    lBeacons.removeAt(i);
+            for (int i = 0; i < LairdBt510::beacons.size(); i++) {
+                if (LairdBt510::beacons.at(i).missed_scan < 0) {
+                    LairdBt510::beacons.removeAt(i);
                     i--;
                 }
             }
@@ -452,7 +452,7 @@ void Beaconscanner::publish(int type)
 #endif
 #ifdef SUPPORT_LAIRDBT510
         case SCAN_LAIRDBT510:
-            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&lBeacons, std::min(LAIRDBT510_CHUNK, lBeacons.size()), this), _pFlags);
+            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
             break;
 #endif
         default:
