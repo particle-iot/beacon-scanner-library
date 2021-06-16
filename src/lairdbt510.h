@@ -142,9 +142,10 @@ public:
     uint16_t getBattVoltage() const { return _batt_voltage; };
 
     // Configure the device
-    bool configure(LairdBt510Config config);
+    particle::Future<bool> configure(LairdBt510Config config);
 
 private:
+    void* handler_data_;
     friend class Beaconscanner;
     void loop();
     static bool isBeacon(const BleScanResult *scanResult);

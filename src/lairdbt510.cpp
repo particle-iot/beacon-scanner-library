@@ -149,7 +149,9 @@ void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
 
 void LairdBt510::onDisconnected(const BlePeerDevice& peer) {
     for (auto& i : beacons) {
-        if (i.getAddress() == peer.address()) {
+        if (i.getAddress() == peer.address() && i.state_ != DISCONNECT) {
+            auto p = Promise<bool>::fromDataPtr(i.handler_data_);
+            p.setError(Error::ABORTED);
             i.state_ = IDLE;
             break;
         }
@@ -197,9 +199,13 @@ void LairdBt510::loop() {
         case RECEIVING:
             break;
         case DISCONNECT:
+        {
             peer_.disconnect();
+            auto p = Promise<bool>::fromDataPtr(handler_data_);
+            p.setResult(true);
             state_ = IDLE;
             break;
+        }
         case IDLE:
             break;
         }
@@ -207,17 +213,19 @@ void LairdBt510::loop() {
     }
 }
 
-bool LairdBt510::configure(LairdBt510Config config) {
+particle::Future<bool> LairdBt510::configure(LairdBt510Config config) {
+    Promise<bool> p;
     if (state_ == IDLE) {
+        handler_data_ = p.dataPtr();
         BLE.onDisconnected(onDisconnected);
         config_ = config;
         state_ = CONNECTING;
         Log.trace("Set to connecting state %d", state_);
-        return true;
     }
     else {
-        return false;
+        p.setError(Error::BUSY);
     }
+    return p.future();
 }
 
 LairdBt510Config& LairdBt510Config::sensorName(const char* name) {
