@@ -146,13 +146,13 @@ public:
    * 
    */
 #ifdef SUPPORT_KONTAKT
-  Vector<KontaktTag>& getKontaktTags() {return kSensors;};
+  Vector<KontaktTag>& getKontaktTags() {return KontaktTag::beacons;};
 #endif
 #ifdef SUPPORT_IBEACON
-  Vector<iBeaconScan>& getiBeacons() {return iBeacons;};
+  Vector<iBeaconScan>& getiBeacons() {return iBeaconScan::beacons;};
 #endif
 #ifdef SUPPORT_EDDYSTONE
-  Vector<Eddystone>& getEddystone() {return eBeacons;};
+  Vector<Eddystone>& getEddystone() {return Eddystone::beacons;};
 #endif
 #ifdef SUPPORT_LAIRDBT510
   Vector<LairdBt510>& getLairdBt510() {return LairdBt510::beacons;};
@@ -169,15 +169,12 @@ private:
   PublishFlags _pFlags;
   const char* _eventName;
 #ifdef SUPPORT_KONTAKT
-  Vector<KontaktTag> kSensors;
   Vector<BleAddress> kPublished;
 #endif
 #ifdef SUPPORT_IBEACON
-  Vector<iBeaconScan> iBeacons;
   Vector<BleAddress> iPublished;
 #endif
 #ifdef SUPPORT_EDDYSTONE
-  Vector<Eddystone> eBeacons;
   Vector<BleAddress> ePublished;
 #endif
 #ifdef SUPPORT_LAIRDBT510

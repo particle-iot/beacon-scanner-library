@@ -10,8 +10,6 @@ public:
     iBeaconScan() : Beacon(SCAN_IBEACON) {};
     ~iBeaconScan() = default;
 
-    void populateData(const BleScanResult *scanResult) override;
-    static bool isBeacon(const BleScanResult *scanResult);
     void toJson(JSONWriter *writer) const override;
 
     const char* getUuid() const {return uuid;};
@@ -24,6 +22,11 @@ private:
     uint16_t major;
     uint16_t minor;
     int8_t power;
+    friend class Beaconscanner;
+    static Vector<iBeaconScan> beacons;
+    void populateData(const BleScanResult *scanResult) override;
+    static bool isBeacon(const BleScanResult *scanResult);
+    static void addOrUpdate(const BleScanResult *scanResult);
 };
 
 #endif

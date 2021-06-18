@@ -163,6 +163,7 @@ private:
     static bool isBeacon(const BleScanResult *scanResult);
     void populateData(const BleScanResult *scanResult) override;
     static Vector<LairdBt510> beacons;
+    static void addOrUpdate(const BleScanResult *scanResult);
     int16_t _temp;
     uint16_t _record_number, _batt_voltage;
     bool _magnet_event, _magnet_state, _movement;

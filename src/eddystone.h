@@ -80,8 +80,6 @@ public:
         uint32_t sec_cnt;
     };
 
-    void populateData(const BleScanResult *scanResult) override;
-    static bool isBeacon(const BleScanResult *scanResult);
     void toJson(JSONWriter *writer) const override;
 
     Uid getUid() const {return uid;}
@@ -92,6 +90,11 @@ private:
     Uid uid;
     Url url;
     Tlm tlm;
+    friend class Beaconscanner;
+    static Vector<Eddystone> beacons;
+    void populateData(const BleScanResult *scanResult) override;
+    static bool isBeacon(const BleScanResult *scanResult);
+    static void addOrUpdate(const BleScanResult *scanResult);
 };
 
 #endif
