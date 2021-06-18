@@ -8,14 +8,17 @@
 #define IBEACON_JSON_SIZE 119
 #define KONTAKT_JSON_SIZE 82
 #define EDDYSTONE_JSON_SIZE 260
+#define LAIRDBT510_JSON_SIZE 100
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_CHUNK     ( PUBLISH_CHUNK / EDDYSTONE_JSON_SIZE )
+#define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
+#define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -33,68 +36,6 @@ String Beaconscanner::getJson(Vector<T>* beacons, uint8_t count, void *context)
     }
     ctx->writer->endObject();
     return String::format("%.*s", ctx->writer->dataSize(), ctx->writer->buffer());
-}
-
-void Beaconscanner::scanChunkResultCallback(const BleScanResult *scanResult, void *context)
-{
-    /*
-     *  Check if we're scanning for a type of beacon, and if it is that type.
-     *  Create new instance, and populate with existing data if already in the Vector.
-     *  Populate data into the instance with the info just received.
-     *  Add instance back into the Vector
-     *  
-     *  This executes in the BLE thread, so must make sure to not do anything that consumes too much time or blocks.
-     */
-    Beaconscanner *ctx = (Beaconscanner *)context;
-    if ((ctx->_flags & SCAN_IBEACON) && !ctx->iPublished.contains(ADDRESS(scanResult)) && iBeaconScan::isBeacon(scanResult))
-    {
-        iBeaconScan new_beacon;
-        for (uint8_t i = 0; i < ctx->iBeacons.size(); i++)
-        {
-            if (ctx->iBeacons.at(i).getAddress() == ADDRESS(scanResult))
-            {
-                new_beacon = ctx->iBeacons.takeAt(i);
-                new_beacon.newly_scanned = false;
-                break;
-            }
-        }
-        new_beacon.populateData(scanResult);
-        new_beacon.missed_scan = 0;
-        ctx->iBeacons.append(new_beacon);
-    }
-    else if ((ctx->_flags & SCAN_KONTAKT) && !ctx->kPublished.contains(ADDRESS(scanResult)) && KontaktTag::isTag(scanResult))
-    {
-        KontaktTag new_beacon;
-        for (uint8_t i = 0; i < ctx->kSensors.size(); i++)
-        {
-            if (ctx->kSensors.at(i).getAddress() == ADDRESS(scanResult))
-            {
-                new_beacon = ctx->kSensors.takeAt(i);
-                new_beacon.newly_scanned = false;
-                break;
-            }
-        }
-        new_beacon.populateData(scanResult);
-        new_beacon.missed_scan = 0;
-        ctx->kSensors.append(new_beacon);
-    } else if ((ctx->_flags & SCAN_EDDYSTONE) && !ctx->ePublished.contains(ADDRESS(scanResult)) && Eddystone::isBeacon(scanResult))
-    {
-        Eddystone new_beacon;
-        for (uint8_t i = 0; i < ctx->eBeacons.size(); i++)
-        {
-            if (ctx->eBeacons.at(i).getAddress() == ADDRESS(scanResult))
-            {
-                new_beacon = ctx->eBeacons.takeAt(i);
-                new_beacon.newly_scanned = false;
-                break;
-            }
-        }
-        new_beacon.populateData(scanResult);
-        new_beacon.missed_scan = 0;
-        ctx->eBeacons.append(new_beacon);
-    } else if (ctx->_customCallback) {
-        ctx->_customCallback(scanResult);
-    }
 }
 
 void custom_scan_params() {
@@ -117,19 +58,122 @@ void custom_scan_params() {
     BLE.setScanParameters(&scanParams); 
 }
 
+void Beaconscanner::processScan(Vector<BleScanResult> scans) {
+    while(!scans.isEmpty()) {
+        BleScanResult scan = scans.takeFirst();
+        const BleScanResult* scanResult = &scan;
+        if (false) {}
+#ifdef SUPPORT_IBEACON
+        else if ((_flags & SCAN_IBEACON) && iBeaconScan::isBeacon(scanResult) && !iPublished.contains(ADDRESS(scanResult)))
+        {
+            iBeaconScan new_beacon;
+            for (uint8_t i = 0; i < iBeacons.size(); i++)
+            {
+                if (iBeacons.at(i).getAddress() == ADDRESS(scanResult))
+                {
+                    new_beacon = iBeacons.takeAt(i);
+                    new_beacon.newly_scanned = false;
+                    break;
+                }
+            }
+            new_beacon.populateData(scanResult);
+            new_beacon.missed_scan = 0;
+            iBeacons.append(new_beacon);
+        }
+#endif
+#ifdef SUPPORT_KONTAKT
+        else if ((_flags & SCAN_KONTAKT) && KontaktTag::isTag(scanResult) && !kPublished.contains(ADDRESS(scanResult)))
+        {
+            KontaktTag new_beacon;
+            for (uint8_t i = 0; i < kSensors.size(); i++)
+            {
+                if (kSensors.at(i).getAddress() == ADDRESS(scanResult))
+                {
+                    new_beacon = kSensors.takeAt(i);
+                    new_beacon.newly_scanned = false;
+                    break;
+                }
+            }
+            new_beacon.populateData(scanResult);
+            new_beacon.missed_scan = 0;
+            kSensors.append(new_beacon);
+        }
+#endif
+#ifdef SUPPORT_EDDYSTONE 
+        else if ((_flags & SCAN_EDDYSTONE) && Eddystone::isBeacon(scanResult) && !ePublished.contains(ADDRESS(scanResult)))
+        {
+            Eddystone new_beacon;
+            for (uint8_t i = 0; i < eBeacons.size(); i++)
+            {
+                if (eBeacons.at(i).getAddress() == ADDRESS(scanResult))
+                {
+                    new_beacon = eBeacons.takeAt(i);
+                    new_beacon.newly_scanned = false;
+                    break;
+                }
+            }
+            new_beacon.populateData(scanResult);
+            new_beacon.missed_scan = 0;
+            eBeacons.append(new_beacon);
+        } else if (_customCallback) {
+            _customCallback(scanResult);
+        }
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        else if ((_flags & SCAN_LAIRDBT510) && LairdBt510::isBeacon(scanResult) && !lPublished.contains(ADDRESS(scanResult)))
+        {
+            uint8_t i;
+            for (i = 0; i < LairdBt510::beacons.size(); ++i)
+            {
+                if (LairdBt510::beacons.at(i).getAddress() == ADDRESS(scanResult))
+                {
+                    break;              
+                }
+            }
+            if(i == LairdBt510::beacons.size()) {
+                LairdBt510 new_beacon;
+                new_beacon.populateData(scanResult);
+                new_beacon.missed_scan = 0;
+                LairdBt510::beacons.append(new_beacon);
+            } else {
+                LairdBt510& beacon = LairdBt510::beacons.at(i);
+                beacon.newly_scanned = false;
+                beacon.populateData(scanResult);
+                beacon.missed_scan = 0;
+            }
+        }
+#endif 
+        else if (_customCallback) {
+            _customCallback(scanResult);
+        }
+    }
+}
+
 void Beaconscanner::customScan(uint16_t duration)
 {
     custom_scan_params();
+#ifdef SUPPORT_KONTAKT
     kPublished.clear();
-    iPublished.clear();
-    ePublished.clear();
     kSensors.clear();
+#endif
+#ifdef SUPPORT_IBEACON
+    iPublished.clear();
     iBeacons.clear();
+#endif
+#ifdef SUPPORT_EDDYSTONE
+    ePublished.clear();
     eBeacons.clear();
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    lPublished.clear();
+    LairdBt510::beacons.clear();
+#endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
     {
-        BLE.scan(scanChunkResultCallback, this);
+        Vector<BleScanResult> cur_responses = BLE.scan();
+        processScan(cur_responses);
+#ifdef SUPPORT_IBEACON
         if (_publish && (  
             (_memory_saver && iBeacons.size() >= IBEACON_CHUNK) ||
             (!_memory_saver && iBeacons.size() >= IBEACON_NONSAVER)
@@ -141,6 +185,8 @@ void Beaconscanner::customScan(uint16_t duration)
             }
             publish(SCAN_IBEACON);
         }
+#endif
+#ifdef SUPPORT_KONTAKT
         if (_publish && (
             (_memory_saver && kSensors.size() >= KONTAKT_CHUNK) ||
             (!_memory_saver && kSensors.size() >= KONTAKT_NONSAVER)
@@ -152,6 +198,8 @@ void Beaconscanner::customScan(uint16_t duration)
             }
             publish(SCAN_KONTAKT);
         }
+#endif
+#ifdef SUPPORT_EDDYSTONE
         if (_publish && (
             (_memory_saver && eBeacons.size() >= EDDYSTONE_CHUNK) ||
             (!_memory_saver && eBeacons.size() >= EDDYSTONE_NONSAVER)
@@ -163,6 +211,20 @@ void Beaconscanner::customScan(uint16_t duration)
             }
             publish(SCAN_EDDYSTONE);
         }
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        if (_publish && (
+            (_memory_saver && LairdBt510::beacons.size() >= LAIRDBT510_CHUNK) ||
+            (!_memory_saver && LairdBt510::beacons.size() >= LAIRDBT510_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < LAIRDBT510_CHUNK;i++)
+            {
+                lPublished.append(LairdBt510::beacons.at(i).getAddress());
+            }
+            publish(SCAN_LAIRDBT510);
+        }
+#endif
     }
 }
 
@@ -175,12 +237,22 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
     _pFlags = pFlags;
     _memory_saver = memory_saver;
     customScan(duration);
+#ifdef SUPPORT_IBEACON
     while (!iBeacons.isEmpty())
         publish(SCAN_IBEACON);
+#endif
+#ifdef SUPPORT_KONTAKT
     while (!kSensors.isEmpty())
         publish(SCAN_KONTAKT);
+#endif
+#ifdef SUPPORT_EDDYSTONE
     while (!eBeacons.isEmpty())
         publish(SCAN_EDDYSTONE);
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    while (!LairdBt510::beacons.isEmpty())
+        publish(SCAN_LAIRDBT510);
+#endif
 }
 
 void Beaconscanner::scan(uint16_t duration, int flags)
@@ -200,7 +272,9 @@ void Beaconscanner::scan_thread(void *param) {
         custom_scan_params();
         long int elapsed = millis();
         while(_instance->_run && millis() - elapsed < _instance->_scan_period*1000) {
-            BLE.scan(scanChunkResultCallback, _instance);
+            //BLE.scan(scanChunkResultCallback, _instance);
+            Vector<BleScanResult> cur_responses = BLE.scan();
+            _instance->processScan(cur_responses);
         }
         _instance->_scan_done = true;
         os_thread_yield();
@@ -219,25 +293,42 @@ void Beaconscanner::stopContinuous() {
 }
 
 void Beaconscanner::loop() {
+#ifdef SUPPORT_IBEACON
     for (auto& i : iBeacons) {
         if (_callback && i.newly_scanned) {
             _callback(i, NEW);
             i.newly_scanned = false;
         }
     }
+#endif
+#ifdef SUPPORT_EDDYSTONE
     for (auto& e : eBeacons) {
         if (_callback && e.newly_scanned) {
             _callback(e, NEW);
             e.newly_scanned = false;
         }
     }
+#endif
+#ifdef SUPPORT_KONTAKT
     for (auto& k : kSensors) {
         if (_callback && k.newly_scanned) {
             _callback(k, NEW);
             k.newly_scanned = false;
         }
     }
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    for (LairdBt510& l : LairdBt510::beacons) {
+        if (_callback && l.newly_scanned) {
+            _callback(l, NEW);
+            l.newly_scanned = false;
+        }
+        l.loop();
+    }
+#endif
+
     if (_scan_done) {
+#ifdef SUPPORT_IBEACON
         for (auto& i : iBeacons) {
             if (i.missed_scan >= _clear_missed) {
                 if (_callback) {
@@ -248,6 +339,16 @@ void Beaconscanner::loop() {
                 i.missed_scan++;
             }
         }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < iBeacons.size(); i++) {
+                if (iBeacons.at(i).missed_scan < 0) {
+                    iBeacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
+#ifdef SUPPORT_EDDYSTONE
         for (auto& e : eBeacons) {
             if (e.missed_scan >= _clear_missed) {
                 if (_callback) {
@@ -258,6 +359,16 @@ void Beaconscanner::loop() {
                 e.missed_scan++;
             }
         }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < eBeacons.size(); i++) {
+                if (eBeacons.at(i).missed_scan < 0) {
+                    eBeacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
+#ifdef SUPPORT_KONTAKT
         for (auto& k : kSensors) {
             if (k.missed_scan >= _clear_missed) {
                 if (_callback) {
@@ -269,18 +380,6 @@ void Beaconscanner::loop() {
             }
         }
         SINGLE_THREADED_BLOCK() {
-            for (int i = 0; i < iBeacons.size(); i++) {
-                if (iBeacons.at(i).missed_scan < 0) {
-                    iBeacons.removeAt(i);
-                    i--;
-                }
-            }
-            for (int i = 0; i < eBeacons.size(); i++) {
-                if (eBeacons.at(i).missed_scan < 0) {
-                    eBeacons.removeAt(i);
-                    i--;
-                }
-            }
             for (int i = 0; i < kSensors.size(); i++) {
                 if (kSensors.at(i).missed_scan < 0) {
                     kSensors.removeAt(i);
@@ -288,6 +387,27 @@ void Beaconscanner::loop() {
                 }
             }
         }
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        for (auto& l : LairdBt510::beacons) {
+            if (l.state_ == LairdBt510::State::IDLE && l.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(l, REMOVED);
+                }
+                l.missed_scan = -1;
+            } else {
+                l.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < LairdBt510::beacons.size(); i++) {
+                if (LairdBt510::beacons.at(i).missed_scan < 0) {
+                    LairdBt510::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
         _scan_done = false;
     }
 }
@@ -295,9 +415,18 @@ void Beaconscanner::loop() {
 void Beaconscanner::publish(const char* eventName, int type)
 {
     _eventName = eventName;
+#ifdef SUPPORT_IBEACON
     if (type & SCAN_IBEACON) publish(SCAN_IBEACON);
+#endif
+#ifdef SUPPORT_KONTAKT
     if (type & SCAN_KONTAKT) publish(SCAN_KONTAKT);
+#endif
+#ifdef SUPPORT_EDDYSTONE
     if (type & SCAN_EDDYSTONE) publish(SCAN_EDDYSTONE);
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    if (type & SCAN_LAIRDBT510) publish(SCAN_LAIRDBT510);
+#endif
 }
 
 void Beaconscanner::publish(int type)
@@ -306,15 +435,26 @@ void Beaconscanner::publish(int type)
     writer = new JSONBufferWriter(buf, PUBLISH_CHUNK);
     switch (type)
     {
+#ifdef SUPPORT_IBEACON
         case SCAN_IBEACON:
             Particle.publish(String::format("%s-ibeacon", _eventName), getJson(&iBeacons, std::min(IBEACON_CHUNK, iBeacons.size()), this),_pFlags);
             break;
+#endif
+#ifdef SUPPORT_KONTAKT
         case SCAN_KONTAKT:
             Particle.publish(String::format("%s-kontakt", _eventName), getJson(&kSensors, std::min(KONTAKT_CHUNK, kSensors.size()), this),_pFlags);
             break;
+#endif
+#ifdef SUPPORT_EDDYSTONE
         case SCAN_EDDYSTONE:
             Particle.publish(String::format("%s-eddystone", _eventName), getJson(&eBeacons, std::min(EDDYSTONE_CHUNK, eBeacons.size()),this), _pFlags);
             break;
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        case SCAN_LAIRDBT510:
+            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
+            break;
+#endif
         default:
             break;
     }

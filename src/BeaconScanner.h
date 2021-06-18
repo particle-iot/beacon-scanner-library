@@ -4,10 +4,24 @@
 #ifndef BEACON_SCANNER_H
 #define BEACON_SCANNER_H
 
+#define SUPPORT_IBEACON
+#define SUPPORT_KONTAKT
+#define SUPPORT_EDDYSTONE
+#define SUPPORT_LAIRDBT510
+
 #include "Particle.h"
+#ifdef SUPPORT_IBEACON
 #include "iBeacon-scan.h"
+#endif
+#ifdef SUPPORT_KONTAKT
 #include "kontaktTag.h"
+#endif
+#ifdef SUPPORT_EDDYSTONE
 #include "eddystone.h"
+#endif
+#ifdef SUPPORT_LAIRDBT510
+#include "lairdbt510.h"
+#endif
 
 // This is the type that will be returned in the callback function, whether a tag has
 // entered the area of the device, or left the area.
@@ -54,7 +68,7 @@ public:
    * @param duration  How long to scan for, in seconds. Default: 5 seconds
    * @param flags     Which type of beacons to scan for. Default: all
    */
-  void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
+  void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
 
   /**
    * The device will continuously scan on a separate thread, not blocking the main application. The
@@ -66,7 +80,7 @@ public:
    * 
    * @param flags   Which type of beacons to scan for. Default: all
    */
-  void startContinuous(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
+  void startContinuous(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
   /**
    * Suspend the thread that scans continuously.
    */
@@ -125,46 +139,68 @@ public:
    * @param eventName the name of the event to publish. The library will add -<beacon-type> to the event name
    * @param type      the type of beacons to publish. If blank, it'll publish all
    */
-  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE));
+  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
 
   /**
    * Get Vectors of the tags that have been detected
    * 
    */
-  Vector<KontaktTag> getKontaktTags() {return kSensors;};
-  Vector<iBeaconScan> getiBeacons() {return iBeacons;};
-  Vector<Eddystone> getEddystone() {return eBeacons;};
+#ifdef SUPPORT_KONTAKT
+  Vector<KontaktTag>& getKontaktTags() {return kSensors;};
+#endif
+#ifdef SUPPORT_IBEACON
+  Vector<iBeaconScan>& getiBeacons() {return iBeacons;};
+#endif
+#ifdef SUPPORT_EDDYSTONE
+  Vector<Eddystone>& getEddystone() {return eBeacons;};
+#endif
+#ifdef SUPPORT_LAIRDBT510
+  Vector<LairdBt510>& getLairdBt510() {return LairdBt510::beacons;};
+#endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
 
   JSONBufferWriter *writer;
 
-  private:
-    bool _publish, _memory_saver, _run, _scan_done;
-    int _flags;
-    uint8_t _clear_missed, _scan_period;
-    PublishFlags _pFlags;
-    Vector<BleAddress> kPublished, iPublished, ePublished;
-    const char* _eventName;
-    Vector<KontaktTag> kSensors;
-    Vector<iBeaconScan> iBeacons;
-    Vector<Eddystone> eBeacons;
-    Thread* _thread;
-    static Beaconscanner* _instance;
-    static void scanChunkResultCallback(const BleScanResult *scanResult, void *context);
-    static void scan_thread(void* param);
-    void publish(int type);
-    void customScan(uint16_t interval);
-    BeaconScanCallback _callback;
-    CustomBeaconCallback _customCallback;
-    Beaconscanner() :
-        _run(false),
-        _scan_done(false),
-        _clear_missed(1),
-        _scan_period(10),
-        _thread(nullptr),
-        _callback(nullptr),
-        _customCallback(nullptr) {};
+private:
+  bool _publish, _memory_saver, _run, _scan_done;
+  int _flags;
+  uint8_t _clear_missed, _scan_period;
+  PublishFlags _pFlags;
+  const char* _eventName;
+#ifdef SUPPORT_KONTAKT
+  Vector<KontaktTag> kSensors;
+  Vector<BleAddress> kPublished;
+#endif
+#ifdef SUPPORT_IBEACON
+  Vector<iBeaconScan> iBeacons;
+  Vector<BleAddress> iPublished;
+#endif
+#ifdef SUPPORT_EDDYSTONE
+  Vector<Eddystone> eBeacons;
+  Vector<BleAddress> ePublished;
+#endif
+#ifdef SUPPORT_LAIRDBT510
+  Vector<BleAddress> lPublished;
+#endif
+  Thread* _thread;
+  static Beaconscanner* _instance;
+  static void scanChunkResultCallback(const BleScanResult *scanResult, void *context);
+  static void scan_thread(void* param);
+  void publish(int type);
+  void customScan(uint16_t interval);
+  void processScan(Vector<BleScanResult> scans);
+  BeaconScanCallback _callback;
+  CustomBeaconCallback _customCallback;
+  Beaconscanner() :
+      _memory_saver(false),
+      _run(false),
+      _scan_done(false),
+      _clear_missed(1),
+      _scan_period(10),
+      _thread(nullptr),
+      _callback(nullptr),
+      _customCallback(nullptr) {};
 };
 
 #define Scanner Beaconscanner::instance()
