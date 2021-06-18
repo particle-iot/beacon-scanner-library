@@ -12,6 +12,11 @@ public:
     LairdBt510Config();
     ~LairdBt510Config() = default;
     /**
+     * Set the passkey for pairing. Default is 123456.
+     * It must be 6 numerical characters.
+     */
+    LairdBt510Config& currentPasskey(const char* passkey);
+    /**
      * Set the name of the sensor. 23 characters max
      */
     LairdBt510Config& sensorName(const char* name);
@@ -67,9 +72,13 @@ public:
      * @param sec seconds for timeout, between 0 and 10000
      */
     LairdBt510Config& connectionTimeout(uint16_t sec);
+    /**
+     * The new passkey to program into the device.
+     */
+    LairdBt510Config& newPasskey(const char* passkey);
     void createJson(JSONVectorWriter& writer, uint16_t& configId) const;
 protected:
-    Vector<char> name_, location_, passkey_;
+    Vector<char> name_, location_;
     uint32_t tempSenseInterval_, battSenseInterval_;
     uint16_t advInterval_, connTimeout_;
     uint8_t tempAggregationCount_, deltaTempAlarm_, configFlags_;
@@ -81,8 +90,11 @@ protected:
         ConfigLowTempAlarm1       = 0x04,
         ConfigLowTempAlarm2       = 0x08,
         ConfigDeltaTempAlarm      = 0x10,
-        ConfigNetworkId           = 0x20
+        ConfigNetworkId           = 0x20,
+        ConfigNewPasskey          = 0x40
     };
+    friend class LairdBt510;
+    uint8_t passkey_[6], newPasskey_[6];
 };
 
 enum class lairdbt510_event_type {
@@ -159,7 +171,7 @@ private:
     static void onPairingEvent(const BlePairingEvent& event);
     static void onDisconnected(const BlePeerDevice& peer);
     enum State: uint8_t {
-        IDLE, CONNECTING, PAIRING, SENDING, DISCONNECT, RECEIVING
+        IDLE, CONNECTING, PAIRING, SENDING, DISCONNECT, RECEIVING, CLEANUP
     } state_, prev_state_;
     BlePeerDevice peer_;
     BleCharacteristic tx, rx;

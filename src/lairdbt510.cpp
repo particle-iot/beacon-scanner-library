@@ -1,5 +1,7 @@
 #include "lairdbt510.h"
 
+#define RECEIVE_TIMEOUT_LOOPS     20    // Each loop is approximately 1 second
+
 LairdBt510EventCallback LairdBt510::_eventCallback = nullptr;
 LairdBt510EventCallback LairdBt510::_alarmCallback = nullptr;
 Vector<LairdBt510> LairdBt510::beacons;
@@ -112,6 +114,7 @@ private:
 
 void LairdBt510::onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context) {
     LairdBt510* ctx = (LairdBt510*)context;
+    // TODO: Check the returned JSON to make sure it is ok
     Log.trace("Received %d bytes", size);
     uint8_t buf[size+1];
     memcpy(buf, data, size);
@@ -131,13 +134,37 @@ void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
         switch (event.type)
         {
         case BlePairingEventType::PASSKEY_INPUT:
-            BLE.setPairingPasskey(event.peer, (uint8_t *)"123456");
+            BLE.setPairingPasskey(event.peer, dev->config_.passkey_);
             Log.trace("Set pairing key for: %s", dev->getAddress().toString().c_str());
             break;
         case BlePairingEventType::STATUS_UPDATED:
-            dev->state_ = SENDING;
-            Log.trace("Pairing complete for: %s", dev->getAddress().toString().c_str());
+        {
+            switch (event.payload.status.status)
+            {
+            case BLE_GAP_SEC_STATUS_SUCCESS:
+                dev->state_ = SENDING;
+                Log.trace("Pairing complete for: %s", dev->getAddress().toString().c_str());
+                break;
+            case BLE_GAP_SEC_STATUS_CONFIRM_VALUE:
+                dev->state_ = DISCONNECT;
+                Log.error("Passkey is incorrect");
+                if (dev->state_ != CLEANUP) {
+                    auto p = Promise<bool>::fromDataPtr(dev->handler_data_);
+                    p.setError(Error::INVALID_ARGUMENT);
+                    dev->state_ = CLEANUP;
+                }
+                break;
+            default:
+                if (dev->state_ != CLEANUP) {
+                    auto p = Promise<bool>::fromDataPtr(dev->handler_data_);
+                    p.setError(Error::INVALID_ARGUMENT);
+                    dev->state_ = CLEANUP;
+                }
+                Log.error("Other pairing error: %02X", event.payload.status.status);
+                break;
+            }
             break;
+        }
         default:
             Log.trace("Other pairing event: %d", (uint8_t)event.type);
             break;
@@ -149,7 +176,7 @@ void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
 
 void LairdBt510::onDisconnected(const BlePeerDevice& peer) {
     for (auto& i : beacons) {
-        if (i.getAddress() == peer.address() && i.state_ != DISCONNECT) {
+        if (i.getAddress() == peer.address() && i.state_ != CLEANUP) {
             auto p = Promise<bool>::fromDataPtr(i.handler_data_);
             p.setError(Error::ABORTED);
             i.state_ = IDLE;
@@ -159,7 +186,8 @@ void LairdBt510::onDisconnected(const BlePeerDevice& peer) {
 }
 
 void LairdBt510::loop() {
-    unsigned int timer = System.uptime();
+    static unsigned int timer = System.uptime();
+    static uint8_t timeout = 0;
     if (state_ != prev_state_ || timer != System.uptime()) {
         prev_state_ = state_;
         switch (state_)
@@ -168,10 +196,7 @@ void LairdBt510::loop() {
             peer_ = BLE.connect(getAddress(), false);
             if (peer_.connected()) {
                 state_ = PAIRING;
-                BLE.onPairingEvent(onPairingEvent);
-                BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
             }
-            Log.trace("State connecting");
             break;
         case PAIRING:
             BLE.startPairing(peer_);
@@ -193,19 +218,36 @@ void LairdBt510::loop() {
             }
             Log.trace("Send value: %s", buf);
             Log.trace("set value return: %d",rx.setValue(reinterpret_cast<const uint8_t*>(writer_.vector().data()), writer_.vectorSize(), BleTxRxType::ACK));
-            state_ = RECEIVING;
+            if (state_ == SENDING) {
+                state_ = RECEIVING;
+                timeout = 0;
+            }
             break;
         }
         case RECEIVING:
-            break;
-        case DISCONNECT:
+        // The state change is handled automatically by the onReceive callback, but we should
+        // have a timeout here in case something went wrong.
         {
-            peer_.disconnect();
-            auto p = Promise<bool>::fromDataPtr(handler_data_);
-            p.setResult(true);
-            state_ = IDLE;
+            if (++timeout > RECEIVE_TIMEOUT_LOOPS) {
+                state_ = DISCONNECT;
+            }
             break;
         }
+        case DISCONNECT:
+        {
+            auto p = Promise<bool>::fromDataPtr(handler_data_);
+            if (timeout > RECEIVE_TIMEOUT_LOOPS) {
+                p.setError(Error::TIMEOUT);
+            } else {
+                p.setResult(true);
+            }
+            state_ = CLEANUP;
+            break;
+        }
+        case CLEANUP:
+            state_ = IDLE;
+            peer_.disconnect();
+            break;
         case IDLE:
             break;
         }
@@ -216,11 +258,12 @@ void LairdBt510::loop() {
 particle::Future<bool> LairdBt510::configure(LairdBt510Config config) {
     Promise<bool> p;
     if (state_ == IDLE) {
-        handler_data_ = p.dataPtr();
+        BLE.onPairingEvent(onPairingEvent);
+        BLE.setPairingIoCaps(BlePairingIoCaps::KEYBOARD_ONLY);
         BLE.onDisconnected(onDisconnected);
+        handler_data_ = p.dataPtr();
         config_ = config;
         state_ = CONNECTING;
-        Log.trace("Set to connecting state %d", state_);
     }
     else {
         p.setError(Error::BUSY);
@@ -228,6 +271,20 @@ particle::Future<bool> LairdBt510::configure(LairdBt510Config config) {
     return p.future();
 }
 
+LairdBt510Config& LairdBt510Config::currentPasskey(const char* passkey) {
+    if (strlen(passkey) == 6) {
+        for(size_t i = 0; i < 6; ++i) {
+            if (passkey[i] < 0x30 || passkey[i] > 0x39) {
+                Log.error("Passkey characters must be numbers");
+                return *this;
+            }
+        }
+        memcpy(passkey_, passkey, 6);
+    } else {
+        Log.error("Passkey is not 6 characters long");
+    }
+    return *this;
+}
 LairdBt510Config& LairdBt510Config::sensorName(const char* name) {
     name_.clear();
     name_.append(name, std::min(strlen(name)+1, (size_t)23));
@@ -266,6 +323,21 @@ LairdBt510Config& LairdBt510Config::deltaTempAlarm(uint8_t celsius) {
     deltaTempAlarm_ = celsius;
     return *this;
 }
+LairdBt510Config& LairdBt510Config::newPasskey(const char* passkey) {
+    if (strlen(passkey) == 6) {
+        for(size_t i = 0; i < 6; ++i) {
+            if (passkey[i] < 0x30 || passkey[i] > 0x39) {
+                Log.error("New passkey characters must be numbers");
+                return *this;
+            }
+        }
+        memcpy(newPasskey_, passkey, 6);
+        configFlags_ = (configFlags_ | ConfigNewPasskey);
+    } else {
+        Log.error("New passkey is not 6 characters long");
+    }
+    return *this;
+}
 
 void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) const {
     writer.beginObject();
@@ -280,6 +352,7 @@ void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) 
     if (configFlags_ & ConfigLowTempAlarm1) writer.name("lowTemperatureAlarmThreshold1").value((int)lowTempAlarm1_);
     if (configFlags_ & ConfigLowTempAlarm2) writer.name("lowTemperatureAlarmThreshold2").value((int)lowTempAlarm2_);
     if (configFlags_ & ConfigDeltaTempAlarm) writer.name("deltaTemperatureAlarmThreshold").value((unsigned)deltaTempAlarm_);
+    if (configFlags_ & ConfigNewPasskey) writer.name("passkey").value((const char *)newPasskey_, 6);
     writer.endObject();
     writer.name("id").value(++configId);
     writer.endObject();
@@ -293,5 +366,6 @@ LairdBt510Config::LairdBt510Config():
         advInterval_(0xFFFF),
         connTimeout_(0xFFFF),
         tempAggregationCount_(0xFF),
-        configFlags_(Bt510ConfigFields::NONE)
+        configFlags_(Bt510ConfigFields::NONE),
+        passkey_{0x31, 0x32, 0x33, 0x34, 0x35, 0x36}
         {};

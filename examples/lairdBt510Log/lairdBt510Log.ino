@@ -79,6 +79,12 @@ int configDevice(String command) {
     else if (iter.name() == "deltaTemperatureAlarmThreshold") {
       config.deltaTempAlarm(iter.value().toInt());
     }
+    else if (iter.name() == "passkey") {
+      config.currentPasskey(iter.value().toString().data());
+    }
+    else if (iter.name() == "newPasskey") {
+      config.newPasskey(iter.value().toString().data());
+    }
     else if (iter.name() == "sensorAddress") {
       auto addressString = String(iter.value().toString().data());
       address.set(addressString, BleAddressType::RANDOM_STATIC);
