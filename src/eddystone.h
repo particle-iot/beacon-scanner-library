@@ -80,16 +80,52 @@ public:
         uint32_t sec_cnt;
     };
 
+#ifdef SUPPORT_KKMSMART
+    class Kkm {
+    public:
+        Kkm() {
+            found = false;
+            accel_data = false;
+        }
+        ~Kkm() = default;
+        uint16_t getVbatt() const { return vbatt; };
+        float getTemp() const { 
+            if (temp_integer > 0) {
+                return (float)(temp_integer+temp_fraction/(float)256); 
+            }
+            return (float)(temp_integer-temp_fraction/(float)256);
+        };
+        bool hasAccelData() const { return accel_data; };
+        int16_t getAccelXaxis() const { return x_axis; };
+        int16_t getAccelYaxis() const { return y_axis; };
+        int16_t getAccelZaxis() const { return z_axis; };
+        bool found;
+        void populateData(uint8_t *buf, uint8_t size);
+    private:
+        uint16_t vbatt;
+        int8_t temp_integer;
+        uint8_t temp_fraction;
+        int16_t x_axis, y_axis, z_axis;
+        bool accel_data;
+    };
+#endif
+
     void toJson(JSONWriter *writer) const override;
 
     Uid getUid() const {return uid;}
     Url getUrl() const {return url;}
     Tlm getTlm() const {return tlm;}
+#ifdef SUPPORT_KKMSMART
+    Kkm getKkm() const {return kkm;}
+#endif
 
 private:
     Uid uid;
     Url url;
     Tlm tlm;
+#ifdef SUPPORT_KKMSMART
+    Kkm kkm;
+#endif
     friend class Beaconscanner;
     static Vector<Eddystone> beacons;
     void populateData(const BleScanResult *scanResult) override;

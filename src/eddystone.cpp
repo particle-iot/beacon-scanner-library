@@ -23,8 +23,14 @@ void Eddystone::populateData(const BleScanResult *scanResult)
             if (count == 16)      // According to the spec, packet length must be 16
                 tlm.populateData(buf);
             break;
+#ifdef SUPPORT_KKMSMART
+        case 0x21:
+            if (count >= 5) kkm.populateData(buf, count);
+            break;
+#endif
         default:
-            Log.info("Eddystone format not supported");
+            Log.info("Eddystone format not supported: %02X", buf[2]);
+            break;
         }
     }
 }
@@ -69,7 +75,21 @@ void Eddystone::toJson(JSONWriter *writer) const
             writer->name("adv_cnt").value((unsigned int)tlm.getAdvCnt());
             writer->name("sec_cnt").value((unsigned int)tlm.getSecCnt());
             writer->endObject();
-        } 
+        }
+#ifdef SUPPORT_KKMSMART
+        if (kkm.found)
+        {
+            writer->name("kkm").beginObject();
+            writer->name("vbatt").value(kkm.getVbatt());
+            writer->name("temp").value(kkm.getTemp());
+            if (kkm.hasAccelData()) {
+                writer->name("x_axis").value(kkm.getAccelXaxis());
+                writer->name("y_axis").value(kkm.getAccelYaxis());
+                writer->name("z_axis").value(kkm.getAccelZaxis());
+            }
+            writer->endObject();
+        }
+#endif
         writer->endObject();
 }
 
@@ -105,6 +125,43 @@ void Eddystone::Tlm::populateData(uint8_t *buf)
         sec_cnt = (buf[12]<<24)+(buf[13]<<16)+(buf[14]<<8)+buf[15];
     }
 }
+
+#ifdef SUPPORT_KKMSMART
+#define KKM_SENSOR_MASK_VOLTAGE     0x1
+#define KKM_SENSOR_MASK_TEMP        0x2
+#define KKM_SENSOR_MASK_HUME        0x4
+#define KKM_SENSOR_MASK_ACC_AIX     0x8
+void Eddystone::Kkm::populateData(uint8_t *buf, uint8_t size) {
+    found = true;
+    uint8_t cursor = 3;
+    //uint8_t version = buf[cursor++];
+    cursor++;   // Currently not using version. Remove this statement if version is uncommented out.
+    uint8_t sensorMask = buf[cursor++];
+    if ( (sensorMask & KKM_SENSOR_MASK_VOLTAGE) != 0) {
+        if ( cursor + 2 > size) return;
+        vbatt = buf[cursor] << 8 | buf[cursor+1];
+        cursor += 2;
+    }
+    if ( (sensorMask & KKM_SENSOR_MASK_TEMP) != 0) {
+        if ( cursor + 2 > size) return;
+        temp_integer = buf[cursor++];
+        temp_fraction = buf[cursor++]; 
+    }
+    if ( (sensorMask & KKM_SENSOR_MASK_HUME) != 0) {
+        if (cursor + 2 > size) return;
+        // TODO: Add humidity
+        cursor +=2;
+    }
+    if ( (sensorMask & KKM_SENSOR_MASK_ACC_AIX) != 0) {
+        if (cursor + 6 > size) return;
+        accel_data = true;
+        x_axis = buf[cursor] << 8 | buf[cursor+1];
+        y_axis = buf[cursor+2] << 8 | buf[cursor+3];
+        z_axis = buf[cursor+4] << 8 | buf[cursor+5];
+        cursor += 6;
+    }
+}
+#endif
 
 String Eddystone::Url::urlString() const
 {
