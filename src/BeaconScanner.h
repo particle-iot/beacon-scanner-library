@@ -4,10 +4,7 @@
 #ifndef BEACON_SCANNER_H
 #define BEACON_SCANNER_H
 
-#define SUPPORT_IBEACON
-#define SUPPORT_KONTAKT
-#define SUPPORT_EDDYSTONE
-#define SUPPORT_LAIRDBT510
+#include "config.h"
 
 #include "Particle.h"
 #ifdef SUPPORT_IBEACON
