@@ -4,6 +4,8 @@ This library works with Particle Gen3 devices to scan for BLE advertisements and
 * iBeacon
 * Eddystone UID, URL, and unencrypted TLM
 * Kontakt.io beacons (tested with Asset Tag S18-3)
+* Laird BT510 beacons, including connecting to them for changing configuration
+* KKM beacons (tested with Waterproof Beacon K8)
 
 ## Functions available
 
@@ -204,3 +206,4 @@ void loop()
 * __Publish:__ Starts a scan which publishes all the types of devices
 * __Tracker Continuous:__ With a Tracker, continuously scan and publish the most recently detected when the Tracker decides to publish
 * __Tracker Callback:__ With a Tracker, continuously scan, and use callbacks to alert the application when a beacon has been newly detected, or has been missed for more than 10 seconds. The callback function will store these events, and then append them to the normal location publish.
+* __Laird BT510 Log:__ This example logs when it receives alarms and events from the Laird BT510 beacon. It also exposes a function that can be called from the Particle Cloud with JSON to reconfigure the settings of the beacons that are nearby.

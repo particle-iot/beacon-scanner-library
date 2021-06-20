@@ -1,4 +1,17 @@
-/* beacon-scanner library by Mariano Goluboff
+/*
+ * Copyright (c) 2020 Particle Industries, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #include "BeaconScanner.h"
@@ -107,6 +120,10 @@ void Beaconscanner::customScan(uint16_t duration)
 #ifdef SUPPORT_EDDYSTONE
     ePublished.clear();
     Eddystone::beacons.clear();
+#endif
+#ifdef SUPPORT_LAIRDBT510
+    lPublished.clear();
+    LairdBt510::beacons.clear();
 #endif
 #ifdef SUPPORT_LAIRDBT510
     lPublished.clear();
@@ -392,6 +409,11 @@ void Beaconscanner::publish(int type)
 #ifdef SUPPORT_EDDYSTONE
         case SCAN_EDDYSTONE:
             Particle.publish(String::format("%s-eddystone", _eventName), getJson(&Eddystone::beacons, std::min(EDDYSTONE_CHUNK, Eddystone::beacons.size()),this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_LAIRDBT510
+        case SCAN_LAIRDBT510:
+            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
             break;
 #endif
 #ifdef SUPPORT_LAIRDBT510
