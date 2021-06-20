@@ -21,14 +21,6 @@ public:
         writer->name(address.toString()).beginObject();
         writer->endObject();
     };
-    virtual void populateData(const BleScanResult *scanResult) {
-        rssi += RSSI(scanResult);
-        rssi_count++;
-        if (rssi_count > 5) {
-            rssi = rssi/rssi_count;
-            rssi_count = 1;
-        }
-    };
     bool newly_scanned;
     ble_scanner_config_t type;
 
@@ -42,6 +34,14 @@ protected:
     BleAddress address;
     int16_t rssi;
     uint8_t rssi_count;
+    virtual void populateData(const BleScanResult *scanResult) {
+        rssi += RSSI(scanResult);
+        rssi_count++;
+        if (rssi_count > 5) {
+            rssi = rssi/rssi_count;
+            rssi_count = 1;
+        }
+    };
 };
 
 #endif

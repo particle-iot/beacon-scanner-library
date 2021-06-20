@@ -16,6 +16,8 @@
 
 #include "eddystone.h"
 
+Vector<Eddystone> Eddystone::beacons;
+
 void Eddystone::populateData(const BleScanResult *scanResult)
 {
     address = ADDRESS(scanResult);
@@ -249,4 +251,25 @@ String Eddystone::Url::urlString() const
         }
     }
     return String::format("%.*s", cursor, buf);
+}
+
+void Eddystone::addOrUpdate(const BleScanResult *scanResult)
+{
+    uint8_t i;
+    for (i = 0; i < beacons.size(); ++i) {
+        if (beacons.at(i).getAddress() == ADDRESS(scanResult)) {
+            break;
+        }
+    }
+    if (i == beacons.size()) {
+        Eddystone new_beacon;
+        new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
+        beacons.append(new_beacon);
+    } else {
+        Eddystone& beacon = beacons.at(i);
+        beacon.newly_scanned = false;
+        beacon.populateData(scanResult);
+        beacon.missed_scan = 0;
+    }
 }

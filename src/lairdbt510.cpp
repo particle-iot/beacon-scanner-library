@@ -112,6 +112,28 @@ void LairdBt510::toJson(JSONWriter *writer) const
         writer->endObject();
 }
 
+void LairdBt510::addOrUpdate(const BleScanResult *scanResult) {
+    uint8_t i;
+    for (i = 0; i < beacons.size(); ++i)
+    {
+        if (beacons.at(i).getAddress() == ADDRESS(scanResult))
+        {
+            break;              
+        }
+    }
+    if(i == beacons.size()) {
+        LairdBt510 new_beacon;
+        new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
+        beacons.append(new_beacon);
+    } else {
+        LairdBt510& beacon = beacons.at(i);
+        beacon.newly_scanned = false;
+        beacon.populateData(scanResult);
+        beacon.missed_scan = 0;
+    }
+}
+
 class JSONVectorWriter: public JSONWriter {
 public:
     JSONVectorWriter(): v_(Vector<char>()) {}

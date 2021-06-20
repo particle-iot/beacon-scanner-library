@@ -16,6 +16,8 @@
 
 #include "iBeacon-scan.h"
 
+Vector<iBeaconScan> iBeaconScan::beacons;
+
 void iBeaconScan::populateData(const BleScanResult *scanResult)
 {
     Beacon::populateData(scanResult);
@@ -53,4 +55,25 @@ void iBeaconScan::toJson(JSONWriter *writer) const
         writer->name("power").value(getPower());
         writer->name("rssi").value(getRssi());
         writer->endObject();
+}
+
+void iBeaconScan::addOrUpdate(const BleScanResult *scanResult)
+{
+    uint8_t i;
+    for (i = 0; i < beacons.size(); ++i) {
+        if (beacons.at(i).getAddress() == ADDRESS(scanResult)) {
+            break;
+        }
+    }
+    if (i == beacons.size()) {
+        iBeaconScan new_beacon;
+        new_beacon.populateData(scanResult);
+        new_beacon.missed_scan = 0;
+        beacons.append(new_beacon);
+    } else {
+        iBeaconScan& beacon = beacons.at(i);
+        beacon.newly_scanned = false;
+        beacon.populateData(scanResult);
+        beacon.missed_scan = 0;
+    }
 }

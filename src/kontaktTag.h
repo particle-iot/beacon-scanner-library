@@ -30,8 +30,6 @@ public:
     };
     ~KontaktTag() = default;
 
-    static bool isTag(const BleScanResult *scanResult);
-    void populateData(const BleScanResult *scanResult) override;
     void toJson(JSONWriter *writer) const override;
 
     uint8_t getBattery() const { return battery; };
@@ -50,6 +48,11 @@ private:
     uint16_t button_time, accel_last_double_tap, accel_last_movement;
     int8_t x_axis, y_axis, z_axis, temperature;
     bool accel_data;
+    friend class Beaconscanner;
+    static Vector<KontaktTag> beacons;
+    static bool isTag(const BleScanResult *scanResult);
+    void populateData(const BleScanResult *scanResult) override;
+    static void addOrUpdate(const BleScanResult *scanResult);
 };
 
 #endif
