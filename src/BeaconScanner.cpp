@@ -416,11 +416,6 @@ void Beaconscanner::publish(int type)
             Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
             break;
 #endif
-#ifdef SUPPORT_LAIRDBT510
-        case SCAN_LAIRDBT510:
-            Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
-            break;
-#endif
         default:
             break;
     }
