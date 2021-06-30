@@ -17,6 +17,7 @@
 #include "lairdbt510.h"
 
 #define RECEIVE_TIMEOUT_LOOPS     20    // Each loop is approximately 1 second
+#define MAX_MANUFACTURER_DATA_LEN 37
 
 LairdBt510EventCallback LairdBt510::_eventCallback = nullptr;
 LairdBt510EventCallback LairdBt510::_alarmCallback = nullptr;
@@ -26,45 +27,66 @@ void LairdBt510::populateData(const BleScanResult *scanResult)
 {
     Beacon::populateData(scanResult);
     address = ADDRESS(scanResult);
-    uint8_t buf[38];
-    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, 38);
+    uint8_t buf[MAX_MANUFACTURER_DATA_LEN];
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, MAX_MANUFACTURER_DATA_LEN);
     uint16_t prev_record = _record_number;
     if (count > 25) {   // Advertising data is correct, either table 1 or table 3
         bool prev_magnet = _magnet_state;
         uint16_t flags = buf[7] << 8 | buf[6];
         _magnet_state = (flags & (uint16_t)lairdbt510_flags::MAGNET_STATE);
         _record_number = buf[16] << 8 | buf[15];
-        if (count == 26 && buf[2] == 0x01) {
-            switch ((lairdbt510_event_type)buf[14])
-            {
-            case lairdbt510_event_type::TEMPERATURE:
-            case lairdbt510_event_type::ALARM_HIGH_TEMP_1:
-            case lairdbt510_event_type::ALARM_HIGH_TEMP_2:
-            case lairdbt510_event_type::ALARM_HIGH_TEMP_CLEAR:
-            case lairdbt510_event_type::ALARM_LOW_TEMP_1:
-            case lairdbt510_event_type::ALARM_LOW_TEMP_2:
-            case lairdbt510_event_type::ALARM_LOW_TEMP_CLEAR:
-            case lairdbt510_event_type::ALARM_DELTA_TEMP:
-                _temp = buf[22] << 8 | buf[21];
-                break;
-            case lairdbt510_event_type::MAGNET_PROXIMITY:
-                _magnet_event = buf[21] == 0x01;
-                break;
-            case lairdbt510_event_type::MOVEMENT:
-                break;
-            case lairdbt510_event_type::BATTERY_GOOD:
-            case lairdbt510_event_type::ADVERTISE_ON_BUTTON:
-            case lairdbt510_event_type::BATTERY_BAD:
-                _batt_voltage = buf[22] << 8 | buf[21];
-                break;
-            case lairdbt510_event_type::RESET:
-                break;
-            default:
-                break;
-            }
-            if (_eventCallback && _record_number != prev_record)
-                _eventCallback(*this, (lairdbt510_event_type)buf[14]);
+        lairdbt510_event_type event = (lairdbt510_event_type)buf[14];
+        switch (event)
+        {
+        case lairdbt510_event_type::TEMPERATURE:
+        case lairdbt510_event_type::ALARM_HIGH_TEMP_1:
+        case lairdbt510_event_type::ALARM_HIGH_TEMP_2:
+        case lairdbt510_event_type::ALARM_HIGH_TEMP_CLEAR:
+        case lairdbt510_event_type::ALARM_LOW_TEMP_1:
+        case lairdbt510_event_type::ALARM_LOW_TEMP_2:
+        case lairdbt510_event_type::ALARM_LOW_TEMP_CLEAR:
+        case lairdbt510_event_type::ALARM_DELTA_TEMP:
+            _temp = buf[22] << 8 | buf[21];
+            break;
+        case lairdbt510_event_type::MAGNET_PROXIMITY:
+            _magnet_event = buf[21] == 0x01;
+            break;
+        case lairdbt510_event_type::MOVEMENT:
+            break;
+        case lairdbt510_event_type::BATTERY_GOOD:
+        case lairdbt510_event_type::ADVERTISE_ON_BUTTON:
+        case lairdbt510_event_type::BATTERY_BAD:
+            _batt_voltage = buf[22] << 8 | buf[21];
+            break;
+        case lairdbt510_event_type::RESET:
+            break;
+        default:
+            break;
         }
+        if (count == 37 && buf[2] == 0x02) { 
+            // This is a Coded PHY advertisement, get the rest from the same buffer
+            // TODO: Add extraction of firmware, configuration, and bootloader versions
+            count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::COMPLETE_LOCAL_NAME, buf, MAX_MANUFACTURER_DATA_LEN);
+            if (count > 0 && memcmp(buf, _name.data(), count)) {
+                _name.clear();
+                _name.append((const char*)buf, count);
+                _name.append('\0');
+                Log.trace("New device name: %s", _name.data());
+            }
+        }
+        else if (count == 26 && buf[2] == 0x01) { // This is a 1MB PHY advertisement
+            count = SCAN_RESPONSE(scanResult).get(BleAdvertisingDataType::COMPLETE_LOCAL_NAME, buf, MAX_MANUFACTURER_DATA_LEN);
+            if (count == 0)
+                count = SCAN_RESPONSE(scanResult).get(BleAdvertisingDataType::SHORT_LOCAL_NAME, buf, MAX_MANUFACTURER_DATA_LEN);
+            if (count > 0 && memcmp(buf, _name.data(), count)) {
+                _name.clear();
+                _name.append((const char*)buf, count);
+                _name.append('\0');
+                Log.trace("New device name: %s", _name.data());
+            }
+        }
+        if (_eventCallback && _record_number != prev_record)
+            _eventCallback(*this, event);
         if (_alarmCallback != nullptr) {
             if (flags & (uint16_t)lairdbt510_flags::LOW_BATTERY_ALARM)
                 _alarmCallback(*this, lairdbt510_event_type::BATTERY_BAD);
@@ -92,7 +114,7 @@ bool LairdBt510::isBeacon(const BleScanResult *scanResult)
     {
         uint8_t buf[9];
         ADVERTISING_DATA(scanResult).get(buf, 9);
-        if (buf[0] == 0x02 && buf[1] == 0x01 && buf[2] == 0x06 && buf[3] == 0x1b && buf[4] == 0xFF &&
+        if (buf[0] == 0x02 && buf[1] == 0x01 && buf[2] == 0x06 && (buf[3] == 0x1b || buf[3] == 0x26) && buf[4] == 0xFF &&
             buf[5] == 0x77 && buf[6] == 0x00 && (buf[7] == 0x01 || buf[7] == 0x02) && buf[8] == 0x00) { 
                 return true;
             }
@@ -376,6 +398,10 @@ LairdBt510Config& LairdBt510Config::newPasskey(const char* passkey) {
     }
     return *this;
 }
+LairdBt510Config& LairdBt510Config::useCodedPhy(bool coded) {
+    coded_ = coded ? 1 : 0;
+    return *this;
+}
 
 void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) const {
     writer.beginObject();
@@ -391,6 +417,7 @@ void LairdBt510Config::createJson(JSONVectorWriter& writer, uint16_t& configId) 
     if (configFlags_ & ConfigLowTempAlarm2) writer.name("lowTemperatureAlarmThreshold2").value((int)lowTempAlarm2_);
     if (configFlags_ & ConfigDeltaTempAlarm) writer.name("deltaTemperatureAlarmThreshold").value((unsigned)deltaTempAlarm_);
     if (configFlags_ & ConfigNewPasskey) writer.name("passkey").value((const char *)newPasskey_, 6);
+    if (coded_ < 2) writer.name("useCodedPhy").value((int)coded_);
     writer.endObject();
     writer.name("id").value(++configId);
     writer.endObject();
@@ -405,5 +432,6 @@ LairdBt510Config::LairdBt510Config():
         connTimeout_(0xFFFF),
         tempAggregationCount_(0xFF),
         configFlags_(Bt510ConfigFields::NONE),
+        coded_(2),
         passkey_{0x31, 0x32, 0x33, 0x34, 0x35, 0x36}
         {};

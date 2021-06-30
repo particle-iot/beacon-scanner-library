@@ -21,6 +21,7 @@
 
 #define SUPPORT_IBEACON
 #define SUPPORT_KONTAKT
-#define SUPPORT_EDDYSTONE
 #define SUPPORT_LAIRDBT510
+#define SUPPORT_EDDYSTONE
+// KKM SMART requires support for Eddystone as well
 #define SUPPORT_KKMSMART

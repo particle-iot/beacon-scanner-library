@@ -96,6 +96,7 @@ public:
     };
 
 #ifdef SUPPORT_KKMSMART
+// https://www.kkmcn.com/waterproof-beacon-k8
     class Kkm {
     public:
         Kkm() {

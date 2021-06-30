@@ -17,9 +17,13 @@
 #include "BeaconScanner.h"
 #include "os-version-macros.h"
 
+#if SYSTEM_VERSION >= SYSTEM_VERSION_DEFAULT(3, 0, 0)
+#define PUBLISH_CHUNK 1024
+#else
 #define PUBLISH_CHUNK 622
+#endif
 #define IBEACON_JSON_SIZE 119
-#define KONTAKT_JSON_SIZE 82
+#define KONTAKT_JSON_SIZE 93
 #define EDDYSTONE_JSON_SIZE 260
 #define LAIRDBT510_JSON_SIZE 100
 
@@ -63,10 +67,17 @@ void custom_scan_params() {
      */
     BleScanParams scanParams;
     scanParams.size = sizeof(BleScanParams);
+    BLE.getScanParameters(&scanParams);
+#if SYSTEM_VERSION >= SYSTEM_VERSION_RC(3, 1, 0, 1)
+    if (scanParams.scan_phys != BLE_PHYS_1MBPS && 
+            scanParams.scan_phys != BLE_PHYS_CODED &&
+            scanParams.scan_phys != (BLE_PHYS_1MBPS | BLE_PHYS_CODED))
+                scanParams.scan_phys = BLE_PHYS_1MBPS;
+#endif
     scanParams.interval = 80;   // 50ms
     scanParams.window = 40;     // 25ms
     scanParams.timeout = 15;    // 150ms
-    scanParams.active = false;
+    scanParams.active = true;
     scanParams.filter_policy = BLE_SCAN_FP_ACCEPT_ALL;
     BLE.setScanParameters(&scanParams); 
 }

@@ -99,8 +99,9 @@ public:
    * For continuous mode, set the period, in seconds, after which a device is considered
    * to have missed a scan. Default is 10.
    */
-  void setScanPeriod(uint8_t seconds) {
+  Beaconscanner& setScanPeriod(uint8_t seconds) {
     if (seconds > 0) _scan_period = seconds;
+    return *this;
    }
   /**
    * When in continuous mode, a beacon will be removed from the Vector of beacons after
@@ -111,8 +112,9 @@ public:
    * 
    * @param count   Number of missed scan periods after which beacon will be removed. Default is 1.
    */
-  void setMissedCount(uint8_t count) { 
-    if (count > 0) _clear_missed = count; 
+  Beaconscanner& setMissedCount(uint8_t count) { 
+    if (count > 0) _clear_missed = count;
+    return *this; 
   };
   /** 
    * Register a callback that will be called when a new beacon enters or leaves the area.
@@ -123,7 +125,7 @@ public:
    * 
    * @param callback  The function to be called
    */
-  void setCallback(BeaconScanCallback callback) { _callback = callback; };
+  Beaconscanner& setCallback(BeaconScanCallback callback) { _callback = callback; return *this; };
   /**
    * Call loop from the application in order to have callbacks as well as missed beacon
    * removal work.
@@ -137,7 +139,7 @@ public:
    * match any of the known beacons. This is intended for applications that want to detect
    * custom beacons without modifying the library itself.
    */
-  void setCallback(CustomBeaconCallback callback) { _customCallback = callback; };
+  Beaconscanner& setCallback(CustomBeaconCallback callback) { _customCallback = callback; return *this; };
   /**
    * Calling this will automatically publish the beacons that have been scanned. It will also
    * consume all stored beacons in the vectors.

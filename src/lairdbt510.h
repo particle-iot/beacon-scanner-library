@@ -92,12 +92,16 @@ public:
      * The new passkey to program into the device.
      */
     LairdBt510Config& newPasskey(const char* passkey);
+    /**
+     * Use Coded PHY (Bluetooth 5.0 long range)
+     */
+    LairdBt510Config& useCodedPhy(bool coded);
     void createJson(JSONVectorWriter& writer, uint16_t& configId) const;
 protected:
     Vector<char> name_, location_;
     uint32_t tempSenseInterval_, battSenseInterval_;
     uint16_t advInterval_, connTimeout_;
-    uint8_t tempAggregationCount_, deltaTempAlarm_, configFlags_;
+    uint8_t tempAggregationCount_, deltaTempAlarm_, configFlags_, coded_;
     int8_t  highTempAlarm1_, highTempAlarm2_, lowTempAlarm1_, lowTempAlarm2_;
     enum Bt510ConfigFields: uint8_t {
         NONE                      = 0,
@@ -168,6 +172,7 @@ public:
     bool magnetNear() const {return !_magnet_state;};
     uint16_t getRecordNumber() const { return _record_number; };
     uint16_t getBattVoltage() const { return _batt_voltage; };
+    const char* getName() const { return _name.data(); };
 
     // Configure the device
     particle::Future<bool> configure(LairdBt510Config config);
@@ -184,6 +189,7 @@ private:
     uint16_t _record_number, _batt_voltage;
     bool _magnet_event, _magnet_state, _movement;
     static LairdBt510EventCallback _eventCallback, _alarmCallback;
+    Vector<char> _name;
     static void onDataReceived(const uint8_t* data, size_t size, const BlePeerDevice& peer, void* context);
     static void onPairingEvent(const BlePairingEvent& event);
     static void onDisconnected(const BlePeerDevice& peer);

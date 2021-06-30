@@ -22,10 +22,12 @@
 #if SYSTEM_VERSION >= SYSTEM_VERSION_ALPHA(3, 0, 0, 0)
 #define ADDRESS(p) p->address()
 #define ADVERTISING_DATA(p) p->advertisingData()
+#define SCAN_RESPONSE(p) p->scanResponse()
 #define RSSI(p) p->rssi()
 #else
 #define ADDRESS(p) p->address
 #define ADVERTISING_DATA(p) p->advertisingData
+#define SCAN_RESPONSE(p) p->scanResponse
 #define RSSI(p) p->rssi
 #endif
 

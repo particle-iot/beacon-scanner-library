@@ -127,6 +127,9 @@ int configDevice(String command) {
     else if (iter.name() == "newPasskey") {
       config.newPasskey(iter.value().toString().data());
     }
+    else if (iter.name() == "useCodedPhy") {
+      config.useCodedPhy(iter.value().toBool());
+    }
     /**
      * The sensorAddress field doesn't change anything on the beacon itself.
      * Rather, this field is set in order to specify the address of the beacon
@@ -151,6 +154,18 @@ int configDevice(String command) {
   return 0;
 }
 
+int setScanPhy(String command) {
+  /**
+   * Function to change the PHY that is used for scanning. Use the following values:
+   * 1 - use the 1 MBPS PHY, which is the standard pre-BT 5.0 that most devices support
+   * 4 - use the Coded PHY, new in BT 5.0, which gives you Long Range support
+   * 5 - use both PHYs to scan
+   */
+  int phy = command.toInt();
+  BLE.setScanPhy(static_cast<BlePhy>(phy));
+  return 0;
+}
+
 void setup() {
   Particle.connect();
   BLE.on();
@@ -158,6 +173,7 @@ void setup() {
   LairdBt510::setEventCallback(eventCallback);
   LairdBt510::setAlarmCallback(alarmCallback);
   Particle.function("lairdBt510Config", configDevice);
+  Particle.function("Scan PHY", setScanPhy);
 }
 
 void loop() {
