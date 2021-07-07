@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "config.h"
+#ifdef SUPPORT_LAIRDBT510
 #include "lairdbt510.h"
 
 #define RECEIVE_TIMEOUT_LOOPS     20    // Each loop is approximately 1 second
@@ -435,3 +437,5 @@ LairdBt510Config::LairdBt510Config():
         coded_(2),
         passkey_{0x31, 0x32, 0x33, 0x34, 0x35, 0x36}
         {};
+
+#endif // SUPPORT_LAIRDBT510
