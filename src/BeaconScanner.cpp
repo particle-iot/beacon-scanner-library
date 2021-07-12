@@ -41,10 +41,10 @@ String Beaconscanner::getJson(Vector<T>* beacons, uint8_t count, void *context)
 void Beaconscanner::setFastScanParams() {
     BleScanParams scanParams;
     scanParams.size = sizeof(BleScanParams);
-    scanParams.interval = 80;   // 50ms
-    scanParams.window = 40;     // 25ms
-    scanParams.timeout = 15;    // 150ms
-    scanParams.active = false;
+    scanParams.interval = 80;   // Advertising interval in 0.625 ms units.
+    scanParams.window = 80;     // Scanning window in 0.625 ms units. Default is 80.
+    scanParams.timeout = 100;    // Scan timeout in 10 ms units. Default value is 500.
+    scanParams.active = false; 
     scanParams.filter_policy = BLE_SCAN_FP_ACCEPT_ALL;
     BLE.setScanParameters(&scanParams); 
 }
@@ -138,7 +138,7 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
             {
                 if (lBeacons.at(i).getAddress() == ADDRESS(scanResult))
                 {
-                    Log.info("exiting early on i=%u / ",i,lBeacons.size());
+                    Log.info("exiting early on i=%u %d / ",i,lBeacons.size());
                     break;              
                 }
             }
@@ -183,7 +183,10 @@ void Beaconscanner::clearFastScanList() {
 
 
 Vector<BleScanResult> Beaconscanner::fastScanOnce() {
-    Vector<BleScanResult> cur_responses = BLE.scan();
+    BleScanFilter filter;
+    filter.minRssi(-70);
+    Vector<BleScanResult> cur_responses = BLE.scanWithFilter(filter);
+    // Vector<BleScanResult> cur_responses = BLE.scan();
     return cur_responses;
 }
 
