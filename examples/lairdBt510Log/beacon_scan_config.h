@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef BEACON_SCAN_CONFIG_H
+#define BEACON_SCAN_CONFIG_H
+
 #include "Particle.h"
 
 /**
@@ -22,11 +25,14 @@
  * you can remove some beacon types.
  */
 
-#define SUPPORT_IBEACON
+// #define SUPPORT_IBEACON
 #define SUPPORT_KONTAKT
 #if SYSTEM_VERSION >= SYSTEM_VERSION_DEFAULT(3, 0, 0)
 #define SUPPORT_LAIRDBT510
 #endif
-#define SUPPORT_EDDYSTONE
+// #define SUPPORT_EDDYSTONE
 // KKM SMART requires support for Eddystone as well
-#define SUPPORT_KKMSMART
+// #define SUPPORT_KKMSMART
+
+
+#endif //BEACON_SCAN_CONFIG_H

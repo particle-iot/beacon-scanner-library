@@ -19,8 +19,10 @@
 
 
 #include "Particle.h"
-#include "beacon.h"
+// Must be provided by the parent application
+#include "beacon_scan_config.h"
 
+#include "beacon.h"
 
 #ifdef SUPPORT_IBEACON
 #include "iBeacon-scan.h"

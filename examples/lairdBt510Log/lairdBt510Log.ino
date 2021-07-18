@@ -15,7 +15,6 @@
  */
 
 #include "Particle.h"
-#include "beacon_scan_config.h"
 #include "BeaconScanner.h"
 
 SYSTEM_THREAD(ENABLED);

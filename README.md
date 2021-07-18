@@ -9,15 +9,12 @@ This library works with Particle Gen3 devices to scan for BLE advertisements and
 
 ## Basic usage
 
-In order to configure this library, you must include a configuration file that 
-selects which beacon types you wish to support. See the 
-[`beacon_scan_config.h`](./examples/beacon_scan_config.h) 
+In order to configure this library, your application directory must include a configuration file,
+`beacon_scan_config.h` thatselects which beacon types you wish to support. See 
+[`beacon_scan_config.h`](./examples/log/beacon_scan_config.h) 
 file for an example.
 
-```c++
-#include "beacon_scan_config.h"
-#include "BeaconScanner.h"
-```
+
 
 ## Functions available
 
