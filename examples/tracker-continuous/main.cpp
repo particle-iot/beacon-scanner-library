@@ -19,6 +19,7 @@
 #include "tracker_config.h"
 #include "tracker.h"
 
+#include "beacon_scan_config.h"
 #include "BeaconScanner.h"
 
 SYSTEM_THREAD(ENABLED);
