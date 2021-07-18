@@ -7,6 +7,18 @@ This library works with Particle Gen3 devices to scan for BLE advertisements and
 * Laird BT510 beacons, including connecting to them for changing configuration
 * KKM beacons (tested with Waterproof Beacon K8)
 
+## Basic usage
+
+In order to configure this library, you must include a configuration file that 
+selects which beacon types you wish to support. See the 
+[`beacon_scan_config.h`](./examples/beacon_scan_config.h) 
+file for an example.
+
+```c++
+#include "beacon_scan_config.h"
+#include "BeaconScanner.h"
+```
+
 ## Functions available
 
 There are a few functions that an application can call depending on the needs of the use case.
