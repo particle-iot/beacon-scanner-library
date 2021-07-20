@@ -17,6 +17,7 @@
 #ifndef BEACON_H
 #define BEACON_H
 
+#include "config.h"
 #include "Particle.h"
 #include "os-version-macros.h"
 

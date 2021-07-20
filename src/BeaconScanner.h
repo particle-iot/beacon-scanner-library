@@ -17,11 +17,8 @@
 #ifndef BEACON_SCANNER_H
 #define BEACON_SCANNER_H
 
-
+#include "config.h"
 #include "Particle.h"
-// Must be provided by the parent application
-#include "beacon_scan_config.h"
-
 #include "beacon.h"
 
 #ifdef SUPPORT_IBEACON

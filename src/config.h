@@ -20,9 +20,8 @@
 #include "Particle.h"
 
 /**
- * Configure support for scanning various kinds of Beacons. 
  * If you would like to reduce the amount of flash that the application uses,
- * you can remove some beacon types.
+ * you can remove support for some beacons.
  */
 
 #define SUPPORT_IBEACON
@@ -34,5 +33,4 @@
 // KKM SMART requires support for Eddystone as well
 #define SUPPORT_KKMSMART
 
-
-#endif //BEACON_SCAN_CONFIG_H
+#endif //BEACON_SCAN_CONFIG_H 
