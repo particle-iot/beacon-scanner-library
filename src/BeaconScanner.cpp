@@ -388,16 +388,32 @@ void Beaconscanner::publish(const char* eventName, int type)
 {
     _eventName = eventName;
 #ifdef SUPPORT_IBEACON
-    if (type & SCAN_IBEACON) publish(SCAN_IBEACON);
+    if (type & SCAN_IBEACON) {
+        while (!iBeaconScan::beacons.isEmpty()) {
+            publish(SCAN_IBEACON);
+        }
+    }
 #endif
 #ifdef SUPPORT_KONTAKT
-    if (type & SCAN_KONTAKT) publish(SCAN_KONTAKT);
+    if (type & SCAN_KONTAKT) {
+        while (!KontaktTag::beacons.isEmpty()) {
+            publish(SCAN_KONTAKT);
+        }
+    }
 #endif
 #ifdef SUPPORT_EDDYSTONE
-    if (type & SCAN_EDDYSTONE) publish(SCAN_EDDYSTONE);
+    if (type & SCAN_EDDYSTONE) {
+        while (!Eddystone::beacons.isEmpty()) {
+            publish(SCAN_EDDYSTONE);
+        }
+    }
 #endif
 #ifdef SUPPORT_LAIRDBT510
-    if (type & SCAN_LAIRDBT510) publish(SCAN_LAIRDBT510);
+    if (type & SCAN_LAIRDBT510) {
+        while (!LairdBt510::beacons.isEmpty()) {
+            publish(SCAN_LAIRDBT510);
+        }
+    }
 #endif
 }
 
