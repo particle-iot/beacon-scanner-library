@@ -69,7 +69,7 @@ public:
    * @param pFlags    Publish flags, such as PRIVATE
    * @param memory_saver  Publish more often, to reduce the size of the Vectors
    */
-  void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver = false);
+  void scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver = false, bool rate_limit = true);
   /**
    * The device will scan for BLE advertisements, and store the results in the Vectors for each beacon type.
    * 
@@ -151,7 +151,7 @@ public:
    * @param eventName the name of the event to publish. The library will add -<beacon-type> to the event name
    * @param type      the type of beacons to publish. If blank, it'll publish all
    */
-  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510), bool rate_limit = true);
 
   /**
    * Get Vectors of the tags that have been detected
@@ -178,6 +178,7 @@ private:
   bool _publish, _memory_saver, _run, _scan_done;
   int _flags;
   uint8_t _clear_missed, _scan_period;
+  unsigned long _last_publish;
   PublishFlags _pFlags;
   const char* _eventName;
 #ifdef SUPPORT_KONTAKT
@@ -196,8 +197,8 @@ private:
   static Beaconscanner* _instance;
   static void scanChunkResultCallback(const BleScanResult *scanResult, void *context);
   static void scan_thread(void* param);
-  void publish(int type);
-  void customScan(uint16_t interval);
+  void publish(int type, bool rate_limit);
+  void customScan(uint16_t interval, bool rate_limit);
   void processScan(Vector<BleScanResult> scans);
   BeaconScanCallback _callback;
   CustomBeaconCallback _customCallback;
@@ -207,6 +208,7 @@ private:
       _scan_done(false),
       _clear_missed(1),
       _scan_period(10),
+      _last_publish(0),
       _thread(nullptr),
       _callback(nullptr),
       _customCallback(nullptr) {};

@@ -117,7 +117,7 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
     }
 }
 
-void Beaconscanner::customScan(uint16_t duration)
+void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
 {
     custom_scan_params();
 #ifdef SUPPORT_KONTAKT
@@ -155,7 +155,7 @@ void Beaconscanner::customScan(uint16_t duration)
             {
                 iPublished.append(iBeaconScan::beacons.at(i).getAddress());
             }
-            publish(SCAN_IBEACON);
+            publish(SCAN_IBEACON, rate_limit);
         }
 #endif
 #ifdef SUPPORT_KONTAKT
@@ -168,7 +168,7 @@ void Beaconscanner::customScan(uint16_t duration)
             {
                 kPublished.append(KontaktTag::beacons.at(i).getAddress());
             }
-            publish(SCAN_KONTAKT);
+            publish(SCAN_KONTAKT, rate_limit);
         }
 #endif
 #ifdef SUPPORT_EDDYSTONE
@@ -181,7 +181,7 @@ void Beaconscanner::customScan(uint16_t duration)
             {
                 ePublished.append(Eddystone::beacons.at(i).getAddress());
             }
-            publish(SCAN_EDDYSTONE);
+            publish(SCAN_EDDYSTONE, rate_limit);
         }
 #endif
 #ifdef SUPPORT_LAIRDBT510
@@ -194,13 +194,13 @@ void Beaconscanner::customScan(uint16_t duration)
             {
                 lPublished.append(LairdBt510::beacons.at(i).getAddress());
             }
-            publish(SCAN_LAIRDBT510);
+            publish(SCAN_LAIRDBT510, rate_limit);
         }
 #endif
     }
 }
 
-void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver)
+void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver, bool rate_limit)
 {
     if (_run) return;
     _flags = flags;
@@ -208,31 +208,31 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
     _eventName = eventName;
     _pFlags = pFlags;
     _memory_saver = memory_saver;
-    customScan(duration);
+    customScan(duration, rate_limit);
 #ifdef SUPPORT_IBEACON
     while (!iBeaconScan::beacons.isEmpty())
-        publish(SCAN_IBEACON);
+        publish(SCAN_IBEACON, rate_limit);
 #endif
 #ifdef SUPPORT_KONTAKT
     while (!KontaktTag::beacons.isEmpty())
-        publish(SCAN_KONTAKT);
+        publish(SCAN_KONTAKT, rate_limit);
 #endif
 #ifdef SUPPORT_EDDYSTONE
     while (!Eddystone::beacons.isEmpty())
-        publish(SCAN_EDDYSTONE);
+        publish(SCAN_EDDYSTONE, rate_limit);
 #endif
 #ifdef SUPPORT_LAIRDBT510
     while (!LairdBt510::beacons.isEmpty())
-        publish(SCAN_LAIRDBT510);
+        publish(SCAN_LAIRDBT510, rate_limit);
 #endif
 }
 
 void Beaconscanner::scan(uint16_t duration, int flags)
 {
     if (_run) return;
-    _publish= false;
+    _publish = false;
     _flags = flags;
-    customScan(duration);
+    customScan(duration, false);
 }
 
 void Beaconscanner::scan_thread(void *param) {
@@ -244,7 +244,6 @@ void Beaconscanner::scan_thread(void *param) {
         custom_scan_params();
         long int elapsed = millis();
         while(_instance->_run && millis() - elapsed < _instance->_scan_period*1000) {
-            //BLE.scan(scanChunkResultCallback, _instance);
             Vector<BleScanResult> cur_responses = BLE.scan();
             _instance->processScan(cur_responses);
         }
@@ -384,43 +383,46 @@ void Beaconscanner::loop() {
     }
 }
 
-void Beaconscanner::publish(const char* eventName, int type)
+void Beaconscanner::publish(const char* eventName, int type, bool rate_limit)
 {
     _eventName = eventName;
 #ifdef SUPPORT_IBEACON
     if (type & SCAN_IBEACON) {
         while (!iBeaconScan::beacons.isEmpty()) {
-            publish(SCAN_IBEACON);
+            publish(SCAN_IBEACON, rate_limit);
         }
     }
 #endif
 #ifdef SUPPORT_KONTAKT
     if (type & SCAN_KONTAKT) {
         while (!KontaktTag::beacons.isEmpty()) {
-            publish(SCAN_KONTAKT);
+            publish(SCAN_KONTAKT, rate_limit);
         }
     }
 #endif
 #ifdef SUPPORT_EDDYSTONE
     if (type & SCAN_EDDYSTONE) {
         while (!Eddystone::beacons.isEmpty()) {
-            publish(SCAN_EDDYSTONE);
+            publish(SCAN_EDDYSTONE, rate_limit);
         }
     }
 #endif
 #ifdef SUPPORT_LAIRDBT510
     if (type & SCAN_LAIRDBT510) {
         while (!LairdBt510::beacons.isEmpty()) {
-            publish(SCAN_LAIRDBT510);
+            publish(SCAN_LAIRDBT510, rate_limit);
         }
     }
 #endif
 }
 
-void Beaconscanner::publish(int type)
+void Beaconscanner::publish(int type, bool rate_limit)
 {
     char *buf = new char[PUBLISH_CHUNK];
     writer = new JSONBufferWriter(buf, PUBLISH_CHUNK);
+    while (millis() - _last_publish < 1000) {
+        delay(50);
+    }
     switch (type)
     {
 #ifdef SUPPORT_IBEACON
@@ -446,6 +448,7 @@ void Beaconscanner::publish(int type)
         default:
             break;
     }
+    _last_publish = millis();
     delete writer;
     delete[] buf;
 }

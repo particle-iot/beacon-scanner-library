@@ -112,16 +112,12 @@ void LairdBt510::populateData(const BleScanResult *scanResult)
 
 bool LairdBt510::isBeacon(const BleScanResult *scanResult)
 {
-    if (ADVERTISING_DATA(scanResult).contains(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA))
-    {
-        uint8_t buf[9];
-        ADVERTISING_DATA(scanResult).get(buf, 9);
-        if (buf[0] == 0x02 && buf[1] == 0x01 && buf[2] == 0x06 && (buf[3] == 0x1b || buf[3] == 0x26) && buf[4] == 0xFF &&
+    uint8_t buf[9];
+    size_t size = ADVERTISING_DATA(scanResult).get(buf, 9);
+    if (size >= 9 && buf[0] == 0x02 && buf[1] == 0x01 && buf[2] == 0x06 && (buf[3] == 0x1b || buf[3] == 0x26) && buf[4] == 0xFF &&
             buf[5] == 0x77 && buf[6] == 0x00 && (buf[7] == 0x01 || buf[7] == 0x02) && buf[8] == 0x00) { 
                 return true;
             }
-    
-    } 
     return false;
 }
 
