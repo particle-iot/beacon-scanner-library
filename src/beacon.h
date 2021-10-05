@@ -30,6 +30,7 @@ typedef enum ble_scanner_config_t {
 
 class Beacon {
 public:
+    virtual ~Beacon() = default;
     int8_t missed_scan;
     BleAddress getAddress() const { return address;}
     int8_t getRssi() const {return (int8_t)(rssi/rssi_count);}

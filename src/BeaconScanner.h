@@ -18,8 +18,9 @@
 #define BEACON_SCANNER_H
 
 #include "config.h"
-
 #include "Particle.h"
+#include "beacon.h"
+
 #ifdef SUPPORT_IBEACON
 #include "iBeacon-scan.h"
 #endif
@@ -32,6 +33,7 @@
 #ifdef SUPPORT_LAIRDBT510
 #include "lairdbt510.h"
 #endif
+
 
 // This is the type that will be returned in the callback function, whether a tag has
 // entered the area of the device, or left the area.
