@@ -26,16 +26,19 @@
 #define KONTAKT_JSON_SIZE 93
 #define EDDYSTONE_JSON_SIZE 260
 #define LAIRDBT510_JSON_SIZE 100
+#define SGWIRELESS_JSON_SIZE KONTAKT_JSON_SIZE
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_CHUNK     ( PUBLISH_CHUNK / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
+#define SGWIRELESS_CHUNK    ( PUBLISH_CHUNK / SGWIRELESS_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
+#define SGWIRELESS_NONSAVER ( 5000 / SGWIRELESS_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -111,6 +114,12 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
             LairdBt510::addOrUpdate(scanResult);          
         }
 #endif 
+#ifdef SUPPORT_SGWIRELESS
+        else if ((_flags & SCAN_SGWIRELESS) && SGWirelessTag::isBeacon(scanResult) && !sPublished.contains(ADDRESS(scanResult)))
+        {
+            SGWirelessTag::addOrUpdate(scanResult);          
+        }
+#endif 
         else if (_customCallback) {
             _customCallback(scanResult);
         }
@@ -139,6 +148,10 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
 #ifdef SUPPORT_LAIRDBT510
     lPublished.clear();
     LairdBt510::beacons.clear();
+#endif
+#ifdef SUPPORT_SGWIRELESS
+    sPublished.clear();
+    SGWirelessTag::beacons.clear();
 #endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
@@ -197,6 +210,19 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
             publish(SCAN_LAIRDBT510, rate_limit);
         }
 #endif
+#ifdef SUPPORT_SGWIRELESS
+        if (_publish && (
+            (_memory_saver && SGWirelessTag::beacons.size() >= SGWIRELESS_CHUNK) ||
+            (!_memory_saver && SGWirelessTag::beacons.size() >= SGWIRELESS_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < SGWIRELESS_CHUNK;i++)
+            {
+                sPublished.append(SGWirelessTag::beacons.at(i).getAddress());
+            }
+            publish(SCAN_SGWIRELESS, rate_limit);
+        }
+#endif
     }
 }
 
@@ -224,6 +250,10 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 #ifdef SUPPORT_LAIRDBT510
     while (!LairdBt510::beacons.isEmpty())
         publish(SCAN_LAIRDBT510, rate_limit);
+#endif
+#ifdef SUPPORT_SGWIRELESS
+    while (!SGWirelessTag::beacons.isEmpty())
+        publish(SCAN_SGWIRELESS, rate_limit);
 #endif
 }
 
@@ -295,6 +325,14 @@ void Beaconscanner::loop() {
             l.newly_scanned = false;
         }
         l.loop();
+    }
+#endif
+#ifdef SUPPORT_SGWIRELESS
+    for (SGWirelessTag& s : SGWirelessTag::beacons) {
+        if (_callback && s.newly_scanned) {
+            _callback(s, NEW);
+            s.newly_scanned = false;
+        }
     }
 #endif
 
@@ -379,6 +417,26 @@ void Beaconscanner::loop() {
             }
         }
 #endif
+#ifdef SUPPORT_SGWIRELESS
+        for (auto& s : SGWirelessTag::beacons) {
+            if (s.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(s, REMOVED);
+                } 
+                s.missed_scan = -1;
+            } else {
+                s.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < SGWirelessTag::beacons.size(); i++) {
+                if (SGWirelessTag::beacons.at(i).missed_scan < 0) {
+                    SGWirelessTag::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
         _scan_done = false;
     }
 }
@@ -414,6 +472,13 @@ void Beaconscanner::publish(const char* eventName, int type, bool rate_limit)
         }
     }
 #endif
+#ifdef SUPPORT_SGWIRELESS
+    if (type & SCAN_SGWIRELESS) {
+        while (!SGWirelessTag::beacons.isEmpty()) {
+            publish(SCAN_SGWIRELESS, rate_limit);
+        }
+    }
+#endif
 }
 
 void Beaconscanner::publish(int type, bool rate_limit)
@@ -443,6 +508,11 @@ void Beaconscanner::publish(int type, bool rate_limit)
 #ifdef SUPPORT_LAIRDBT510
         case SCAN_LAIRDBT510:
             Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_SGWIRELESS
+        case SCAN_SGWIRELESS:
+            Particle.publish(String::format("%s-sgwireless", _eventName), getJson(&SGWirelessTag::beacons, std::min(SGWIRELESS_CHUNK, SGWirelessTag::beacons.size()), this), _pFlags);
             break;
 #endif
         default:

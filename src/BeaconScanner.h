@@ -32,6 +32,9 @@
 #ifdef SUPPORT_LAIRDBT510
 #include "lairdbt510.h"
 #endif
+#ifdef SUPPORT_SGWIRELESS
+#include "SGWirelessTag.h"
+#endif
 
 // This is the type that will be returned in the callback function, whether a tag has
 // entered the area of the device, or left the area.
@@ -169,6 +172,9 @@ public:
 #ifdef SUPPORT_LAIRDBT510
   Vector<LairdBt510>& getLairdBt510() {return LairdBt510::beacons;};
 #endif
+#ifdef SUPPORT_SGWIRELESS
+  Vector<SGWirelessTag>& getSGWirelessTags() {return SGWirelessTag::beacons;};
+#endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
 
@@ -192,6 +198,9 @@ private:
 #endif
 #ifdef SUPPORT_LAIRDBT510
   Vector<BleAddress> lPublished;
+#endif
+#ifdef SUPPORT_SGWIRELESS
+  Vector<BleAddress> sPublished;
 #endif
   Thread* _thread;
   static Beaconscanner* _instance;
