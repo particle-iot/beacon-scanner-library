@@ -199,6 +199,9 @@ void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
         {
             switch (event.payload.status.status)
             {
+// This is not supported on the P2/Photon 2                
+// https://community.particle.io/t/beacon-scanner-lib-wont-compile-on-new-p2/64855/2?u=gusgonnet
+#if !HAL_PLATFORM_RTL872X
             case BLE_GAP_SEC_STATUS_SUCCESS:
                 dev->state_ = SENDING;
                 Log.trace("Pairing complete for: %s", dev->getAddress().toString().c_str());
@@ -212,6 +215,7 @@ void LairdBt510::onPairingEvent(const BlePairingEvent& event) {
                     dev->state_ = CLEANUP;
                 }
                 break;
+#endif
             default:
                 if (dev->state_ != CLEANUP) {
                     auto p = Promise<bool>::fromDataPtr(dev->handler_data_);
