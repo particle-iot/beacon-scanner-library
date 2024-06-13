@@ -25,7 +25,8 @@ typedef enum ble_scanner_config_t {
   SCAN_IBEACON         = 0x01,
   SCAN_KONTAKT         = 0x02,
   SCAN_EDDYSTONE       = 0x04,
-  SCAN_LAIRDBT510      = 0x08
+  SCAN_LAIRDBT510      = 0x08,
+  SCAN_SHELLY          = 0x10
 } ble_scanner_config_t;
 
 class Beacon {

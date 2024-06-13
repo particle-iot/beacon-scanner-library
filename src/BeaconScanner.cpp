@@ -26,16 +26,19 @@
 #define KONTAKT_JSON_SIZE 93
 #define EDDYSTONE_JSON_SIZE 260
 #define LAIRDBT510_JSON_SIZE 100
+#define SHELLY_JSON_SIZE 100
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_CHUNK     ( PUBLISH_CHUNK / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
+#define SHELLY_CHUNK        ( PUBLISH_CHUNK / SHELLY_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
+#define SHELLY_NONSAVER     ( 5000 / SHELLY_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -108,7 +111,13 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
 #ifdef SUPPORT_LAIRDBT510
         else if ((_flags & SCAN_LAIRDBT510) && LairdBt510::isBeacon(scanResult) && !lPublished.contains(ADDRESS(scanResult)))
         {
-            LairdBt510::addOrUpdate(scanResult);          
+            LairdBt510::addOrUpdate(scanResult);
+        }
+#endif 
+#ifdef SUPPORT_SHELLY
+        else if ((_flags & SCAN_SHELLY) && Shelly::isBeacon(scanResult) && !sPublished.contains(ADDRESS(scanResult)))
+        {
+            Shelly::addOrUpdate(scanResult);
         }
 #endif 
         else if (_customCallback) {
@@ -139,6 +148,10 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
 #ifdef SUPPORT_LAIRDBT510
     lPublished.clear();
     LairdBt510::beacons.clear();
+#endif
+#ifdef SUPPORT_SHELLY
+    sPublished.clear();
+    Shelly::beacons.clear();
 #endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
@@ -197,6 +210,19 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
             publish(SCAN_LAIRDBT510, rate_limit);
         }
 #endif
+#ifdef SUPPORT_SHELLY
+        if (_publish && (
+            (_memory_saver && Shelly::beacons.size() >= SHELLY_CHUNK) ||
+            (!_memory_saver && Shelly::beacons.size() >= SHELLY_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < SHELLY_CHUNK;i++)
+            {
+                sPublished.append(Shelly::beacons.at(i).getAddress());
+            }
+            publish(SCAN_SHELLY, rate_limit);
+        }
+#endif
     }
 }
 
@@ -224,6 +250,10 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 #ifdef SUPPORT_LAIRDBT510
     while (!LairdBt510::beacons.isEmpty())
         publish(SCAN_LAIRDBT510, rate_limit);
+#endif
+#ifdef SUPPORT_SHELLY
+    while (!Shelly::beacons.isEmpty())
+        publish(SCAN_SHELLY, rate_limit);
 #endif
 }
 
@@ -295,6 +325,14 @@ void Beaconscanner::loop() {
             l.newly_scanned = false;
         }
         l.loop();
+    }
+#endif
+#ifdef SUPPORT_SHELLY
+    for (Shelly& s : Shelly::beacons) {
+        if (_callback && s.newly_scanned) {
+            _callback(s, NEW);
+            s.newly_scanned = false;
+        }
     }
 #endif
 
@@ -379,6 +417,26 @@ void Beaconscanner::loop() {
             }
         }
 #endif
+#ifdef SUPPORT_SHELLY
+        for (auto& s : Shelly::beacons) {
+            if (s.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(s, REMOVED);
+                }
+                s.missed_scan = -1;
+            } else {
+                s.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < Shelly::beacons.size(); i++) {
+                if (Shelly::beacons.at(i).missed_scan < 0) {
+                    Shelly::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
         _scan_done = false;
     }
 }
@@ -414,6 +472,13 @@ void Beaconscanner::publish(const char* eventName, int type, bool rate_limit)
         }
     }
 #endif
+#ifdef SUPPORT_SHELLY
+    if (type & SCAN_SHELLY) {
+        while (!Shelly::beacons.isEmpty()) {
+            publish(SCAN_SHELLY, rate_limit);
+        }
+    }
+#endif
 }
 
 void Beaconscanner::publish(int type, bool rate_limit)
@@ -443,6 +508,11 @@ void Beaconscanner::publish(int type, bool rate_limit)
 #ifdef SUPPORT_LAIRDBT510
         case SCAN_LAIRDBT510:
             Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_SHELLY
+        case SCAN_SHELLY:
+            Particle.publish(String::format("%s-shelly", _eventName), getJson(&Shelly::beacons, std::min(SHELLY_CHUNK, Shelly::beacons.size()), this), _pFlags);
             break;
 #endif
         default:

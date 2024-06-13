@@ -29,3 +29,4 @@
 #define SUPPORT_EDDYSTONE
 // KKM SMART requires support for Eddystone as well
 #define SUPPORT_KKMSMART
+#define SUPPORT_SHELLY
