@@ -22,13 +22,13 @@
 class Shelly : public Beacon
 {
 public:
-    Shelly() : Beacon(SCAN_SHELLY) {};
+    Shelly() : Beacon(SCAN_SHELLY){};
     ~Shelly() = default;
 
     void toJson(JSONWriter *writer) const override;
 
-    const char* getUuid() const {return uuid;};
-    int8_t getPower() const {return power;}
+    const char *getUuid() const { return uuid; };
+    int8_t getPower() const { return power; }
 
 private:
     char uuid[37];
