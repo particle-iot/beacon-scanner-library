@@ -26,19 +26,22 @@
 #define KONTAKT_JSON_SIZE 93
 #define EDDYSTONE_JSON_SIZE 260
 #define LAIRDBT510_JSON_SIZE 100
-#define SHELLY_JSON_SIZE 100
+#define BTHOME_JSON_SIZE 100
+#define RUUVI_JSON_SIZE 100
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_CHUNK     ( PUBLISH_CHUNK / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
-#define SHELLY_CHUNK        ( PUBLISH_CHUNK / SHELLY_JSON_SIZE )
+#define BTHOME_CHUNK        ( PUBLISH_CHUNK / BTHOME_JSON_SIZE )
+#define RUUVI_CHUNK         ( PUBLISH_CHUNK / RUUVI_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
 #define EDDYSTONE_NONSAVER  ( 5000 / EDDYSTONE_JSON_SIZE )
 #define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
-#define SHELLY_NONSAVER     ( 5000 / SHELLY_JSON_SIZE )
+#define BTHOME_NONSAVER     ( 5000 / BTHOME_JSON_SIZE )
+#define RUUVI_NONSAVER      ( 5000 / RUUVI_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -113,13 +116,19 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
         {
             LairdBt510::addOrUpdate(scanResult);
         }
-#endif 
-#ifdef SUPPORT_SHELLY
-        else if ((_flags & SCAN_SHELLY) && Shelly::isBeacon(scanResult) && !sPublished.contains(ADDRESS(scanResult)))
+#endif
+#ifdef SUPPORT_BTHOME
+        else if ((_flags & SCAN_BTHOME) && BTHome::isBeacon(scanResult) && !sPublished.contains(ADDRESS(scanResult)))
         {
-            Shelly::addOrUpdate(scanResult);
+            BTHome::addOrUpdate(scanResult);
         }
-#endif 
+#endif
+#ifdef SUPPORT_RUUVI
+        else if ((_flags & SCAN_RUUVI) && Ruuvi::isBeacon(scanResult) && !rPublished.contains(ADDRESS(scanResult)))
+        {
+            Ruuvi::addOrUpdate(scanResult);
+        }
+#endif
         else if (_customCallback) {
             _customCallback(scanResult);
         }
@@ -149,9 +158,13 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
     lPublished.clear();
     LairdBt510::beacons.clear();
 #endif
-#ifdef SUPPORT_SHELLY
+#ifdef SUPPORT_BTHOME
     sPublished.clear();
-    Shelly::beacons.clear();
+    BTHome::beacons.clear();
+#endif
+#ifdef SUPPORT_RUUVI
+    rPublished.clear();
+    Ruuvi::beacons.clear();
 #endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
@@ -210,20 +223,33 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
             publish(SCAN_LAIRDBT510, rate_limit);
         }
 #endif
-#ifdef SUPPORT_SHELLY
+#ifdef SUPPORT_BTHOME
         if (_publish && (
-            (_memory_saver && Shelly::beacons.size() >= SHELLY_CHUNK) ||
-            (!_memory_saver && Shelly::beacons.size() >= SHELLY_NONSAVER)
+            (_memory_saver && BTHome::beacons.size() >= BTHOME_CHUNK) ||
+            (!_memory_saver && BTHome::beacons.size() >= BTHOME_NONSAVER)
         ))
         {
-            for (uint8_t i=0;i < SHELLY_CHUNK;i++)
+            for (uint8_t i=0;i < BTHOME_CHUNK;i++)
             {
-                sPublished.append(Shelly::beacons.at(i).getAddress());
+                sPublished.append(BTHome::beacons.at(i).getAddress());
             }
-            publish(SCAN_SHELLY, rate_limit);
+            publish(SCAN_BTHOME, rate_limit);
         }
 #endif
+#ifdef SUPPORT_RUUVI
+        if (_publish && (
+            (_memory_saver && Ruuvi::beacons.size() >= RUUVI_CHUNK) ||
+            (!_memory_saver && Ruuvi::beacons.size() >= RUUVI_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < RUUVI_CHUNK;i++)
+            {
+                rPublished.append(Ruuvi::beacons.at(i).getAddress());
+            }
+            publish(SCAN_RUUVI, rate_limit);
+        }
     }
+#endif
 }
 
 void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eventName, PublishFlags pFlags, bool memory_saver, bool rate_limit)
@@ -251,9 +277,13 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
     while (!LairdBt510::beacons.isEmpty())
         publish(SCAN_LAIRDBT510, rate_limit);
 #endif
-#ifdef SUPPORT_SHELLY
-    while (!Shelly::beacons.isEmpty())
-        publish(SCAN_SHELLY, rate_limit);
+#ifdef SUPPORT_BTHOME
+    while (!BTHome::beacons.isEmpty())
+        publish(SCAN_BTHOME, rate_limit);
+#endif
+#ifdef SUPPORT_RUUVI
+    while (!Ruuvi::beacons.isEmpty())
+        publish(SCAN_RUUVI, rate_limit);
 #endif
 }
 
@@ -327,11 +357,19 @@ void Beaconscanner::loop() {
         l.loop();
     }
 #endif
-#ifdef SUPPORT_SHELLY
-    for (Shelly& s : Shelly::beacons) {
+#ifdef SUPPORT_BTHOME
+    for (BTHome& s : BTHome::beacons) {
         if (_callback && s.newly_scanned) {
             _callback(s, NEW);
             s.newly_scanned = false;
+        }
+    }
+#endif
+#ifdef SUPPORT_RUUVI
+    for (Ruuvi& r : Ruuvi::beacons) {
+        if (_callback && r.newly_scanned) {
+            _callback(r, NEW);
+            r.newly_scanned = false;
         }
     }
 #endif
@@ -417,8 +455,8 @@ void Beaconscanner::loop() {
             }
         }
 #endif
-#ifdef SUPPORT_SHELLY
-        for (auto& s : Shelly::beacons) {
+#ifdef SUPPORT_BTHOME
+        for (auto& s : BTHome::beacons) {
             if (s.missed_scan >= _clear_missed) {
                 if (_callback) {
                     _callback(s, REMOVED);
@@ -429,9 +467,29 @@ void Beaconscanner::loop() {
             }
         }
         SINGLE_THREADED_BLOCK() {
-            for (int i = 0; i < Shelly::beacons.size(); i++) {
-                if (Shelly::beacons.at(i).missed_scan < 0) {
-                    Shelly::beacons.removeAt(i);
+            for (int i = 0; i < BTHome::beacons.size(); i++) {
+                if (BTHome::beacons.at(i).missed_scan < 0) {
+                    BTHome::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
+#ifdef SUPPORT_RUUVI
+        for (auto& r : Ruuvi::beacons) {
+            if (r.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(r, REMOVED);
+                }
+                r.missed_scan = -1;
+            } else {
+                r.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < Ruuvi::beacons.size(); i++) {
+                if (Ruuvi::beacons.at(i).missed_scan < 0) {
+                    Ruuvi::beacons.removeAt(i);
                     i--;
                 }
             }
@@ -472,10 +530,17 @@ void Beaconscanner::publish(const char* eventName, int type, bool rate_limit)
         }
     }
 #endif
-#ifdef SUPPORT_SHELLY
-    if (type & SCAN_SHELLY) {
-        while (!Shelly::beacons.isEmpty()) {
-            publish(SCAN_SHELLY, rate_limit);
+#ifdef SUPPORT_BTHOME
+    if (type & SCAN_BTHOME) {
+        while (!BTHome::beacons.isEmpty()) {
+            publish(SCAN_BTHOME, rate_limit);
+        }
+    }
+#endif
+#ifdef SUPPORT_RUUVI
+    if (type & SCAN_RUUVI) {
+        while (!Ruuvi::beacons.isEmpty()) {
+            publish(SCAN_RUUVI, rate_limit);
         }
     }
 #endif
@@ -510,9 +575,14 @@ void Beaconscanner::publish(int type, bool rate_limit)
             Particle.publish(String::format("%s-lairdbt510", _eventName), getJson(&LairdBt510::beacons, std::min(LAIRDBT510_CHUNK, LairdBt510::beacons.size()), this), _pFlags);
             break;
 #endif
-#ifdef SUPPORT_SHELLY
-        case SCAN_SHELLY:
-            Particle.publish(String::format("%s-shelly", _eventName), getJson(&Shelly::beacons, std::min(SHELLY_CHUNK, Shelly::beacons.size()), this), _pFlags);
+#ifdef SUPPORT_BTHOME
+        case SCAN_BTHOME:
+            Particle.publish(String::format("%s-bthome", _eventName), getJson(&BTHome::beacons, std::min(BTHOME_CHUNK, BTHome::beacons.size()), this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_RUUVI
+        case SCAN_RUUVI:
+            Particle.publish(String::format("%s-ruuvi", _eventName), getJson(&Ruuvi::beacons, std::min(RUUVI_CHUNK, Ruuvi::beacons.size()), this), _pFlags);
             break;
 #endif
         default:
