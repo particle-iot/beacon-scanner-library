@@ -32,8 +32,11 @@
 #ifdef SUPPORT_LAIRDBT510
 #include "lairdbt510.h"
 #endif
-#ifdef SUPPORT_SHELLY
-#include "shelly.h"
+#ifdef SUPPORT_BTHOME
+#include "bthome.h"
+#endif
+#ifdef SUPPORT_RUUVI
+#include "ruuvi.h"
 #endif
 
 // This is the type that will be returned in the callback function, whether a tag has
@@ -81,7 +84,7 @@ public:
    * @param duration  How long to scan for, in seconds. Default: 5 seconds
    * @param flags     Which type of beacons to scan for. Default: all
    */
-  void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void scan(uint16_t duration = 5, int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510 | SCAN_BTHOME | SCAN_RUUVI));
 
   /**
    * The device will continuously scan on a separate thread, not blocking the main application. The
@@ -93,7 +96,7 @@ public:
    * 
    * @param flags   Which type of beacons to scan for. Default: all
    */
-  void startContinuous(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510));
+  void startContinuous(int flags = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510 | SCAN_BTHOME | SCAN_RUUVI));
   /**
    * Suspend the thread that scans continuously.
    */
@@ -154,7 +157,7 @@ public:
    * @param eventName the name of the event to publish. The library will add -<beacon-type> to the event name
    * @param type      the type of beacons to publish. If blank, it'll publish all
    */
-  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510), bool rate_limit = true);
+  void publish(const char* eventName, int type = (SCAN_IBEACON | SCAN_KONTAKT | SCAN_EDDYSTONE | SCAN_LAIRDBT510 | SCAN_BTHOME | SCAN_RUUVI), bool rate_limit = true);
 
   /**
    * Get Vectors of the tags that have been detected
@@ -172,8 +175,11 @@ public:
 #ifdef SUPPORT_LAIRDBT510
   Vector<LairdBt510>& getLairdBt510() {return LairdBt510::beacons;};
 #endif
-#ifdef SUPPORT_SHELLY
-  Vector<Shelly>& getShelly() {return Shelly::beacons;};
+#ifdef SUPPORT_BTHOME
+  Vector<BTHome>& getBTHome() {return BTHome::beacons;};
+#endif
+#ifdef SUPPORT_RUUVI
+  Vector<Ruuvi>& getRuuvi() {return Ruuvi::beacons;};
 #endif
 
   template<typename T> static String getJson(Vector<T>* beacons, uint8_t count, void* context);
@@ -199,8 +205,11 @@ private:
 #ifdef SUPPORT_LAIRDBT510
   Vector<BleAddress> lPublished;
 #endif
-#ifdef SUPPORT_SHELLY
+#ifdef SUPPORT_BTHOME
   Vector<BleAddress> sPublished;
+#endif
+#ifdef SUPPORT_RUUVI
+  Vector<BleAddress> rPublished;
 #endif
   Thread* _thread;
   static Beaconscanner* _instance;
