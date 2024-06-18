@@ -17,6 +17,7 @@
 #include "bthome.h"
 
 Vector<BTHome> BTHome::beacons;
+#define MAX_MANUFACTURER_DATA_LEN 37
 
 void BTHome::populateData(const BleScanResult *scanResult)
 {
@@ -32,17 +33,34 @@ void BTHome::populateData(const BleScanResult *scanResult)
     windowState = -1;
     rotation = -1;
     illuminance = -1;
-    
+
     battery = (int)custom_data[24];
 }
 
 bool BTHome::isBeacon(const BleScanResult *scanResult)
 {
-    uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
+    uint8_t buf[MAX_MANUFACTURER_DATA_LEN];
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, MAX_MANUFACTURER_DATA_LEN);
+
     if (count > 3 && buf[0] == 0xD2 && buf[1] == 0xFC) // BTHome UUID is 0xFCD2
+    {
+        String hexString = "";
+        for (size_t i = 0; i < count; i++)
+        {
+            char hex[3];
+            snprintf(hex, sizeof(hex), "%02x", buf[i]);
+            hexString += hex;
+        }
+        Log.info("BTHome sensor found: %s", hexString.c_str());
         return true;
+    }
     return false;
+
+    // uint8_t buf[BLE_MAX_ADV_DATA_LEN];
+    // uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
+    // if (count > 3 && buf[0] == 0xD2 && buf[1] == 0xFC) // BTHome UUID is 0xFCD2
+    //     return true;
+    // return false;
 }
 
 void BTHome::toJson(JSONWriter *writer) const
