@@ -23,24 +23,20 @@ void BTHome::populateData(const BleScanResult *scanResult)
 {
     Beacon::populateData(scanResult);
     address = ADDRESS(scanResult);
-    uint8_t custom_data[BLE_MAX_ADV_DATA_LEN];
-    ADVERTISING_DATA(scanResult).customData(custom_data, sizeof(custom_data));
 
-    // init data to invalid values
-    packetId = -1;
-    battery = -1;
-    buttonEvent = -1;
-    windowState = -1;
-    rotation = -1;
-    illuminance = -1;
+    uint8_t buf[BLE_MAX_ADV_DATA_LEN];
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
 
-    battery = (int)custom_data[24];
+    if (!parseBTHomeAdvertisement(buf, count))
+    {
+        Log.error("BTHome: advertisement parsing failed");
+    }
 }
 
 bool BTHome::isBeacon(const BleScanResult *scanResult)
 {
-    uint8_t buf[MAX_MANUFACTURER_DATA_LEN];
-    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, MAX_MANUFACTURER_DATA_LEN);
+    uint8_t buf[BLE_MAX_ADV_DATA_LEN];
+    uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
 
     if (count > 3 && buf[0] == 0xD2 && buf[1] == 0xFC) // BTHome UUID is 0xFCD2
     {
@@ -51,22 +47,16 @@ bool BTHome::isBeacon(const BleScanResult *scanResult)
             snprintf(hex, sizeof(hex), "%02x", buf[i]);
             hexString += hex;
         }
-        Log.info("BTHome sensor found: %s", hexString.c_str());
+        Log.trace("BTHome sensor found: %s", hexString.c_str());
         return true;
     }
     return false;
-
-    // uint8_t buf[BLE_MAX_ADV_DATA_LEN];
-    // uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
-    // if (count > 3 && buf[0] == 0xD2 && buf[1] == 0xFC) // BTHome UUID is 0xFCD2
-    //     return true;
-    // return false;
 }
 
 void BTHome::toJson(JSONWriter *writer) const
 {
     writer->name(address.toString()).beginObject();
-    writer->name("battery").value(getBattery());
+    writer->name("batteryLevel").value(getBatteryLevel());
     writer->endObject();
 }
 
@@ -94,4 +84,110 @@ void BTHome::addOrUpdate(const BleScanResult *scanResult)
         beacon.populateData(scanResult);
         beacon.missed_scan = 0;
     }
+}
+
+// parses the BTHome Data format specified at https://bthome.io/format/
+// min supported length is 9 bytes
+// Example: D2FC44002D01643A01 (here, a button is pressed: 3A is 01)
+bool BTHome::parseBTHomeAdvertisement(const uint8_t *buf, size_t len)
+{
+
+    if (len < 9)
+    {
+        return false;
+    }
+
+    // first two bytes are the UUID
+    if (buf[0] != 0xD2 || buf[1] != 0xFC)
+    {
+        return false;
+    }
+
+    // next byte is the BTHome Device Information (Example: 0x44)
+    // Log.info("BTHome Device Information: %02X", buf[2]);
+
+    // now parse the rest of the data
+    size_t offset = 3; // start after UUID and device info
+
+    while (offset + 1 < len)
+    {
+        uint8_t objectId = buf[offset++];
+        parseField(objectId, buf, offset);
+    }
+
+    // Log the parsed data
+    Log.trace("Parsed BTHome Advertisement: Packet ID: %d, Battery Level: %d%%, Illuminance: %.2f lx, Window State: %d, Button Event: %d, Rotation: %.1f",
+              packetId, batteryLevel, illuminance * 0.01, windowState, buttonEvent, rotation * 0.1);
+
+    return true;
+}
+
+void BTHome::parseField(uint8_t objectId, const uint8_t *buf, size_t &offset)
+{
+    switch (objectId)
+    {
+
+    case 0x00: // packet id (uint8, 1 byte)
+        if (offset + 1 <= 31)
+        {
+            packetId = buf[offset];
+            offset += 1;
+        }
+        break;
+
+    case 0x01: // Measurement: Battery level (uint8, 1 byte)
+        if (offset + 1 <= 31)
+        {
+            batteryLevel = buf[offset];
+            offset += 1;
+        }
+        break;
+
+    case 0x05: // Illuminance (uint24, 0.01)
+        if (offset + 3 <= 31)
+        {
+            illuminance = littleEndianToUInt24(&buf[offset]);
+            offset += 3;
+        }
+        break;
+
+    case 0x2D: // Measurement: Window (uint8, 1 byte)
+        if (offset + 1 <= 31)
+        {
+            windowState = buf[offset];
+            offset += 1;
+        }
+        break;
+
+    case 0x3A: // Event: button
+        if (offset + 1 <= 31)
+        {
+            buttonEvent = buf[offset];
+            offset += 1;
+        }
+        break;
+
+    case 0x3F: // Rotation (sint16, 0.1)
+        if (offset + 2 <= 31)
+        {
+            rotation = littleEndianToInt16(&buf[offset]);
+            offset += 2;
+        }
+        break;
+
+    // Add cases for other measurement types as needed
+    default:
+        Log.info("parseField() - Unknown measurement type: 0x%02X", objectId);
+        return;
+    }
+}
+
+int16_t BTHome::littleEndianToInt16(const uint8_t *data)
+{
+    return (int16_t)((data[1] << 8) | data[0]);
+}
+
+uint32_t BTHome::littleEndianToUInt24(const uint8_t *data)
+{
+    return (uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16);
 }
