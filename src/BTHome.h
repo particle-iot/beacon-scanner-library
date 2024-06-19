@@ -15,10 +15,10 @@
  */
 
 /*
-* Find BTHome BLE devices at https://www.bthome.com/en-us
-* contributed by @gusgonnet (gusgonnet@gmail.com) 2024 in order to use Shelly BLE devices with Particle devices.
-* https://kb.shelly.cloud/knowledge-base/shelly-ble-devices 
-*/
+ * Find BTHome BLE devices at https://www.bthome.com/en-us
+ * contributed by @gusgonnet (gusgonnet@gmail.com) 2024 in order to use Shelly BLE devices with Particle devices.
+ * https://kb.shelly.cloud/knowledge-base/shelly-ble-devices
+ */
 
 #ifndef BTHOME_H
 #define BTHOME_H
@@ -33,11 +33,16 @@ public:
 
     void toJson(JSONWriter *writer) const override;
 
-    int getBattery() const { return battery; }
+    int getPacketId() const { return packetId; }
+    int getBatteryLevel() const { return batteryLevel; }
+    int getButtonEvent() const { return buttonEvent; }
+    int getWindowState() const { return windowState; }
+    int getRotation() const { return rotation; }
+    int getIlluminance() const { return illuminance; }
 
 private:
     int packetId = 0;
-    int battery = 0;
+    int batteryLevel = 0;
     int buttonEvent = 0;
     int windowState = 0;
     int rotation = 0;
@@ -48,6 +53,11 @@ private:
     void populateData(const BleScanResult *scanResult) override;
     static bool isBeacon(const BleScanResult *scanResult);
     static void addOrUpdate(const BleScanResult *scanResult);
+
+    bool parseBTHomeAdvertisement(const uint8_t *buf, size_t len);
+    void parseField(uint8_t objectId, const uint8_t *buf, size_t &offset);
+    int16_t littleEndianToInt16(const uint8_t *data);
+    uint32_t littleEndianToUInt24(const uint8_t *data);
 };
 
 #endif

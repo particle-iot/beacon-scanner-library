@@ -27,14 +27,9 @@ void Ruuvi::populateData(const BleScanResult *scanResult)
     uint8_t buf[MAX_MANUFACTURER_DATA_LEN];
     uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, MAX_MANUFACTURER_DATA_LEN);
 
-    if (parseRuuviAdvertisement(buf, count))
+    if (!parseRuuviAdvertisement(buf, count))
     {
-        Log.info("temperature=%.2f humidity=%.2f pressure=%.2f", temperature, humidity, pressure);
-        Log.info("format=%u accelX=%.2f accelY=%.2f accelZ=%.2f battery=%.2f txPower=%.2f movements=%u sequence=%lu mac=%s", format, accelerationX, accelerationY, accelerationZ, batteryVoltage, txPower, movementCounter, measurementSequenceNumber, mac);
-    }
-    else
-    {
-        Log.error("Parsing of the Ruuvi sensor advertisement failed");
+        Log.error("Ruuvi: advertisement parsing failed");
     }
 }
 
@@ -113,54 +108,68 @@ bool Ruuvi::parseRuuviAdvertisement(const uint8_t *buf, size_t len)
     }
     index += 2;
 
-    // Payload data
-    // example: 0516142d8fc4c7fc9401c8fffc8ed6f6cba8fc4c2295c482
-    // 05 Data format (8bit)
-    format = buf[index];
+    // Data format (8bit)
+    uint8_t format = buf[index];
     index++;
 
-    // next 1-2 bytes are the Temperature in 0.005 degrees Celsius
-    temperature = (buf[index] << 8 | buf[index + 1]) * 0.005;
+    if (format != 5)
+    {
+        Log.info("Data format is not 5, skipping");
+        return false;
+    }
+
+    // Temperature in 0.005 degrees Celsius
+    int16_t rawTemperature = (buf[index] << 8) | buf[index + 1];
+    temperature = rawTemperature * 0.005;
     index += 2;
 
-    // next 2 bytes are the Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
-    humidity = (buf[index] << 8 | buf[index + 1]) * 0.0025;
+    // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
+    uint16_t rawHumidity = (buf[index] << 8) | buf[index + 1];
+    humidity = rawHumidity * 0.0025;
     index += 2;
 
-    // next 2 bytes are the Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
-    pressure = ((buf[index] << 8 | buf[index]) + 50000);
+    // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
+    uint16_t rawPressure = (buf[index] << 8) | buf[index + 1];
+    pressure = rawPressure + 50000;
     index += 2;
 
-    // next 2 bytes are the Acceleration-X (Most Significant Byte first)
-    accelerationX = (buf[index] << 8 | buf[index + 1]);
+    // Acceleration-X (Most Significant Byte first)
+    int16_t rawAccelerationX = (buf[index] << 8) | buf[index + 1];
+    accelerationX = rawAccelerationX / 1000.0;
     index += 2;
 
-    // next 2 bytes are the Acceleration-Y (Most Significant Byte first)
-    accelerationY = (buf[index] << 8 | buf[index + 1]);
+    // Acceleration-Y (Most Significant Byte first)
+    int16_t rawAccelerationY = (buf[index] << 8) | buf[index + 1];
+    accelerationY = rawAccelerationY / 1000.0;
     index += 2;
 
-    // next 2 bytes are the Acceleration-Z (Most Significant Byte first)
-    accelerationZ = (buf[index] << 8 | buf[index + 1]);
+    // Acceleration-Z (Most Significant Byte first)
+    int16_t rawAccelerationZ = (buf[index] << 8) | buf[index + 1];
+    accelerationZ = rawAccelerationZ / 1000.0;
     index += 2;
 
-    // next 2 bytes are the Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
-    // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
-    batteryVoltage = (((buf[index] << 8 | buf[index + 1]) >> 5) + 1600) / 1000.0;
-    txPower = (buf[index] << 8 | buf[index + 1]) & 0x1F;
+    // Power info (11+5bit unsigned)
+    uint16_t rawPowerInfo = (buf[index] << 8) | buf[index + 1];
+    batteryVoltage = ((rawPowerInfo >> 5) + 1600) / 1000.0;
+    txPower = (rawPowerInfo & 0x1F) * 2 - 40;
     index += 2;
 
-    // next byte is the Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+    // Movement counter (8 bit unsigned)
     movementCounter = buf[index];
     index++;
 
-    // next 2 bytes are the Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
-    measurementSequenceNumber = (buf[index] << 8 | buf[index + 1]);
+    // Measurement sequence number (16 bit unsigned)
+    measurementSequenceNumber = (buf[index] << 8) | buf[index + 1];
     index += 2;
 
-    // next 6 bytes are the MAC address (48bit)
-    snprintf(mac, sizeof(mac), "%02x%02x%02x%02x%02x%02x",
+    // MAC address (48bit)
+    snprintf(mac, sizeof(mac), "%02x:%02x:%02x:%02x:%02x:%02x",
              buf[index], buf[index + 1], buf[index + 2], buf[index + 3], buf[index + 4], buf[index + 5]);
     index += 6;
+
+    // Log the parsed data
+    Log.trace("T: %.2f, Humidity: %.2f, Pressure: %.2f, Accel: [%.3f, %.3f, %.3f] g, Batt: %.3f, TXPower: %d dBm, Move: %d, Seq: %d, MAC: %s",
+             temperature, humidity, pressure, accelerationX, accelerationY, accelerationZ, batteryVoltage, txPower, movementCounter, measurementSequenceNumber, mac);
 
     return true;
 }
