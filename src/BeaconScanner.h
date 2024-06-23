@@ -33,7 +33,7 @@
 #include "lairdbt510.h"
 #endif
 #ifdef SUPPORT_BTHOME
-#include "bthome.h"
+#include "BTHome.h"
 #endif
 #ifdef SUPPORT_RUUVI
 #include "ruuvi.h"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "bthome.h"
+#include "BTHome.h"
 
 Vector<BTHome> BTHome::beacons;
 #define MAX_MANUFACTURER_DATA_LEN 37
