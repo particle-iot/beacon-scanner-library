@@ -6,6 +6,16 @@ This library works with Particle Gen3 devices to scan for BLE advertisements and
 * Kontakt.io beacons (tested with Asset Tag S18-3)
 * Laird BT510 beacons, including connecting to them for changing configuration
 * KKM beacons (tested with Waterproof Beacon K8)
+* BTHome compatible devices (https://bthome.io/), (tested with Shelly BLE button and window sensors https://www.shelly.com/)
+* Ruuvi sensors (https://ruuvi.com/) (tested with RuuviTag)
+
+
+## P2/Photon 2 Limitations
+
+P2/Photon 2 don't support LESC pairing in BLE, hence there's an inconvenience for Laird sensors (they won't work).
+
+[Source](https://community.particle.io/t/beacon-scanner-lib-wont-compile-on-new-p2/64855/2?u=gusgonnet)
+
 
 ## Functions available
 
@@ -128,6 +138,10 @@ And then the data for each supported type of advertiser can be retrieved as a Ve
 Vector<KontaktTag> getKontaktTags();
 Vector<iBeacon> getiBeacons();
 Vector<Eddystone> getEddystone();
+Vector<LairdBT510> getLairdBT510();
+Vector<KKM> getKKM();
+Vector<BTHome> getBTHome();
+Vector<Ruuvi> getRuuvi();
 ```
 
 ### A note on "duration"
@@ -170,7 +184,6 @@ void loop() {
 SYSTEM_THREAD(ENABLED);
 SYSTEM_MODE(SEMI_AUTOMATIC);
 
-PRODUCT_ID(TRACKER_PRODUCT_ID);
 PRODUCT_VERSION(TRACKER_PRODUCT_VERSION);
 
 STARTUP(
@@ -207,3 +220,5 @@ void loop()
 * __Tracker Continuous:__ With a Tracker, continuously scan and publish the most recently detected when the Tracker decides to publish
 * __Tracker Callback:__ With a Tracker, continuously scan, and use callbacks to alert the application when a beacon has been newly detected, or has been missed for more than 10 seconds. The callback function will store these events, and then append them to the normal location publish.
 * __Laird BT510 Log:__ This example logs when it receives alarms and events from the Laird BT510 beacon. It also exposes a function that can be called from the Particle Cloud with JSON to reconfigure the settings of the beacons that are nearby.
+* __ble-scanner-bthome__: This example logs information of the BTHome devices (in particular Shelly BLE buttons and Window sensors).
+* __ble-scanner-ruuvi__: This example logs information of the Ruuvi tags.
