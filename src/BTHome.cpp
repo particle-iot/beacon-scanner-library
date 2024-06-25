@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Particle Industries, Inc.
+ * Copyright (c) 2024 Particle Industries, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,11 @@
  */
 
 #include "BTHome.h"
+
+inline bool isBTHomeUUID(const unsigned char *buf)
+{
+    return (buf[0] == 0xD2 && buf[1] == 0xFC);
+}
 
 Vector<BTHome> BTHome::beacons;
 #define MAX_MANUFACTURER_DATA_LEN 37
@@ -38,7 +43,7 @@ bool BTHome::isBeacon(const BleScanResult *scanResult)
     uint8_t buf[BLE_MAX_ADV_DATA_LEN];
     uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::SERVICE_DATA, buf, BLE_MAX_ADV_DATA_LEN);
 
-    if (count > 3 && buf[0] == 0xD2 && buf[1] == 0xFC) // BTHome UUID is 0xFCD2
+    if (count > 3 && isBTHomeUUID(buf))
     {
         String hexString = "";
         for (size_t i = 0; i < count; i++)
@@ -98,7 +103,7 @@ bool BTHome::parseBTHomeAdvertisement(const uint8_t *buf, size_t len)
     }
 
     // first two bytes are the UUID
-    if (buf[0] != 0xD2 || buf[1] != 0xFC)
+    if (!isBTHomeUUID(buf))
     {
         return false;
     }
