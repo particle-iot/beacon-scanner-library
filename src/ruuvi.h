@@ -53,8 +53,8 @@ private:
     float accelerationY;                // bytes 9-10: Acceleration-Y (Most Significant Byte first)
     float accelerationZ;                // bytes 11-12: Acceleration-Z (Most Significant Byte first)
     float batteryVoltage;               // bytes 13-14: Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
-    int8_t txPower;                      // bytes 13-14: Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
-    uint8_t movementCounter;           // byte 15: Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+    int8_t txPower;                     // bytes 13-14: Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+    uint8_t movementCounter;            // byte 15: Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
     uint16_t measurementSequenceNumber; // bytes 16-17: Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
     char mac[18];                       // bytes 18-23: MAC address (48bit)
 
@@ -64,6 +64,8 @@ private:
     static bool isBeacon(const BleScanResult *scanResult);
     static void addOrUpdate(const BleScanResult *scanResult);
     bool parseRuuviAdvertisement(const uint8_t *buf, size_t len);
+
+    static inline bool isRuuvi(uint8_t lsb, uint8_t msb);
 };
 
 #endif
