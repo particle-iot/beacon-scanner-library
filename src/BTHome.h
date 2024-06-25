@@ -58,6 +58,8 @@ private:
     void parseField(uint8_t objectId, const uint8_t *buf, size_t &offset);
     int16_t littleEndianToInt16(const uint8_t *data);
     uint32_t littleEndianToUInt24(const uint8_t *data);
+
+    static inline bool isBTHome(uint8_t lsb, uint8_t msb);
 };
 
 #endif

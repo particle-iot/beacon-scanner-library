@@ -16,6 +16,8 @@
 
 #include "ruuvi.h"
 
+inline bool Ruuvi::isRuuvi(uint8_t lsb, uint8_t msb) { return (0x99 == lsb) && (0x04 == msb); } // Ruuvi UUID is 0x9904
+
 Vector<Ruuvi> Ruuvi::beacons;
 #define MAX_MANUFACTURER_DATA_LEN 37
 
@@ -38,7 +40,7 @@ bool Ruuvi::isBeacon(const BleScanResult *scanResult)
     uint8_t buf[MAX_MANUFACTURER_DATA_LEN];
     uint8_t count = ADVERTISING_DATA(scanResult).get(BleAdvertisingDataType::MANUFACTURER_SPECIFIC_DATA, buf, MAX_MANUFACTURER_DATA_LEN);
 
-    if (count > 3 && buf[0] == 0x99 && buf[1] == 0x04) // Ruuvi UUID is 0x9904
+    if (count > 3 && isRuuvi(buf[0], buf[1])) // Ruuvi UUID
     {
         char hexString[MAX_MANUFACTURER_DATA_LEN * 2 + 1] = {0}; // Each byte -> 2 hex chars, +1 for null terminator
         for (size_t i = 0; i < count; i++)
@@ -100,12 +102,12 @@ bool Ruuvi::parseRuuviAdvertisement(const uint8_t *buf, size_t len)
     int index = 0;
 
     // Manufacturer ID, least significant byte first: 0x0499 = Ruuvi Innovations Ltd
-    uint16_t manufacturerId = (buf[index + 1] << 8) | buf[index];
-    if (manufacturerId != 0x0499)
+    if (!isRuuvi(buf[0], buf[1]))
     {
         Log.info("manufacturer ID is not 0x0499 - Ruuvi Innovations Ltd, skipping");
         return false;
     }
+
     index += 2;
 
     // Data format (8bit)
@@ -169,7 +171,7 @@ bool Ruuvi::parseRuuviAdvertisement(const uint8_t *buf, size_t len)
 
     // Log the parsed data
     Log.trace("T: %.2f, Humidity: %.2f, Pressure: %.2f, Accel: [%.3f, %.3f, %.3f] g, Batt: %.3f, TXPower: %d dBm, Move: %d, Seq: %d, MAC: %s",
-             temperature, humidity, pressure, accelerationX, accelerationY, accelerationZ, batteryVoltage, txPower, movementCounter, measurementSequenceNumber, mac);
+              temperature, humidity, pressure, accelerationX, accelerationY, accelerationZ, batteryVoltage, txPower, movementCounter, measurementSequenceNumber, mac);
 
     return true;
 }
