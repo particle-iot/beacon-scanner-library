@@ -118,8 +118,8 @@ bool BTHome::parseBTHomeAdvertisement(const uint8_t *buf, size_t len)
     }
 
     // Log the parsed data
-    Log.trace("Parsed BTHome Advertisement: Packet ID: %d, Battery Level: %d%%, Illuminance: %.2f lx, Window State: %d, Button Event: %d, Rotation: %.1f",
-              packetId, batteryLevel, illuminance * 0.01, windowState, buttonEvent, rotation * 0.1);
+    Log.trace("Parsed BTHome Advertisement: Packet ID: %d, Battery Level: %d%%, Illuminance: %.2f lx, Window State: %d, Button Event: %d, Rotation: %.1f, Temperature: %.1f, Humidity: %d%%",
+              packetId, batteryLevel, illuminance, windowState, buttonEvent, rotation, temperature, humidity);
 
     return true;
 }
@@ -148,7 +148,7 @@ void BTHome::parseField(uint8_t objectId, const uint8_t *buf, size_t &offset)
     case 0x05: // Illuminance (uint24, 0.01)
         if (offset + 3 <= 31)
         {
-            illuminance = littleEndianToUInt24(&buf[offset]);
+            illuminance = littleEndianToUInt24(&buf[offset]) * 0.01;
             offset += 3;
         }
         break;
@@ -157,6 +157,14 @@ void BTHome::parseField(uint8_t objectId, const uint8_t *buf, size_t &offset)
         if (offset + 1 <= 31)
         {
             windowState = buf[offset];
+            offset += 1;
+        }
+        break;
+
+    case 0x2E: // Measurement: humidity (uint8, 1 byte)
+        if (offset + 1 <= 31)
+        {
+            humidity = buf[offset];
             offset += 1;
         }
         break;
@@ -172,7 +180,15 @@ void BTHome::parseField(uint8_t objectId, const uint8_t *buf, size_t &offset)
     case 0x3F: // Rotation (sint16, 0.1)
         if (offset + 2 <= 31)
         {
-            rotation = littleEndianToInt16(&buf[offset]);
+            rotation = littleEndianToInt16(&buf[offset]) * 0.1;
+            offset += 2;
+        }
+        break;
+
+    case 0x45: // temperature (sint16, 0.1)
+        if (offset + 2 <= 31)
+        {
+            temperature = littleEndianToInt16(&buf[offset]) * 0.1;
             offset += 2;
         }
         break;

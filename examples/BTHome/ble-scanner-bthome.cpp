@@ -32,7 +32,7 @@ void loop()
     while (!beacons.isEmpty())
     {
       BTHome beacon = beacons.takeFirst();
-      Log.info("BTHome Address: %s, Battery: %d, Button: %d, Window: %d, Rotation: %d", beacon.getAddress().toString().c_str(), beacon.getBatteryLevel(), beacon.getButtonEvent(), beacon.getWindowState(), beacon.getRotation());
+      Log.info("BTHome Address: %s, Battery: %d, Button: %d, Window: %d, Rotation: %d, Temperature: %.1f, Humidity: %d%%", beacon.getAddress().toString().c_str(), beacon.getBatteryLevel(), beacon.getButtonEvent(), beacon.getWindowState(), beacon.getRotation(), beacon.getTemperature(), beacon.getHumidity());
     }
   }
 }

@@ -28,6 +28,8 @@
 #define LAIRDBT510_JSON_SIZE 100
 #define BTHOME_JSON_SIZE 100
 #define RUUVI_JSON_SIZE 100
+#define THERMOPRO_JSON_SIZE 100
+#define GOOVEE_JSON_SIZE 100
 
 #define IBEACON_CHUNK       ( PUBLISH_CHUNK / IBEACON_JSON_SIZE )
 #define KONTAKT_CHUNK       ( PUBLISH_CHUNK / KONTAKT_JSON_SIZE )
@@ -35,6 +37,8 @@
 #define LAIRDBT510_CHUNK    ( PUBLISH_CHUNK / LAIRDBT510_JSON_SIZE )
 #define BTHOME_CHUNK        ( PUBLISH_CHUNK / BTHOME_JSON_SIZE )
 #define RUUVI_CHUNK         ( PUBLISH_CHUNK / RUUVI_JSON_SIZE )
+#define THERMOPRO_CHUNK     ( PUBLISH_CHUNK / THERMOPRO_JSON_SIZE )
+#define GOOVEE_CHUNK        ( PUBLISH_CHUNK / GOOVEE_JSON_SIZE )
 
 #define IBEACON_NONSAVER    ( 5000 / IBEACON_JSON_SIZE )
 #define KONTAKT_NONSAVER    ( 5000 / KONTAKT_JSON_SIZE )
@@ -42,6 +46,8 @@
 #define LAIRDBT510_NONSAVER ( 5000 / LAIRDBT510_JSON_SIZE )
 #define BTHOME_NONSAVER     ( 5000 / BTHOME_JSON_SIZE )
 #define RUUVI_NONSAVER      ( 5000 / RUUVI_JSON_SIZE )
+#define THERMOPRO_NONSAVER  ( 5000 / THERMOPRO_JSON_SIZE )
+#define GOOVEE_NONSAVER     ( 5000 / GOOVEE_JSON_SIZE )
 
 Beaconscanner *Beaconscanner::_instance = nullptr;
 
@@ -129,6 +135,18 @@ void Beaconscanner::processScan(Vector<BleScanResult> scans) {
             Ruuvi::addOrUpdate(scanResult);
         }
 #endif
+#ifdef SUPPORT_THERMOPRO
+        else if ((_flags & SCAN_THERMOPRO) && ThermoPro::isBeacon(scanResult) && !tPublished.contains(ADDRESS(scanResult)))
+        {
+            ThermoPro::addOrUpdate(scanResult);
+        }
+#endif
+#ifdef SUPPORT_GOOVEE
+        else if ((_flags & SCAN_GOOVEE) && Goovee::isBeacon(scanResult) && !gPublished.contains(ADDRESS(scanResult)))
+        {
+            Goovee::addOrUpdate(scanResult);
+        }
+#endif
         else if (_customCallback) {
             _customCallback(scanResult);
         }
@@ -165,6 +183,14 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
 #ifdef SUPPORT_RUUVI
     rPublished.clear();
     Ruuvi::beacons.clear();
+#endif
+#ifdef SUPPORT_THERMOPRO
+    tPublished.clear();
+    ThermoPro::beacons.clear();
+#endif
+#ifdef SUPPORT_GOOVEE
+    gPublished.clear();
+    Goovee::beacons.clear();
 #endif
     long int elapsed = millis();
     while(millis() - elapsed < duration*1000)
@@ -248,6 +274,32 @@ void Beaconscanner::customScan(uint16_t duration, bool rate_limit)
             }
             publish(SCAN_RUUVI, rate_limit);
         }
+#endif
+#ifdef SUPPORT_THERMOPRO
+        if (_publish && (
+            (_memory_saver && ThermoPro::beacons.size() >= THERMOPRO_CHUNK) ||
+            (!_memory_saver && ThermoPro::beacons.size() >= THERMOPRO_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < THERMOPRO_CHUNK;i++)
+            {
+                tPublished.append(ThermoPro::beacons.at(i).getAddress());
+            }
+            publish(SCAN_THERMOPRO, rate_limit);
+        }
+#endif
+#ifdef SUPPORT_GOOVEE
+        if (_publish && (
+            (_memory_saver && Goovee::beacons.size() >= GOOVEE_CHUNK) ||
+            (!_memory_saver && Goovee::beacons.size() >= GOOVEE_NONSAVER)
+        ))
+        {
+            for (uint8_t i=0;i < GOOVEE_CHUNK;i++)
+            {
+                tPublished.append(Goovee::beacons.at(i).getAddress());
+            }
+            publish(SCAN_GOOVEE, rate_limit);
+        }
     }
 #endif
 }
@@ -284,6 +336,14 @@ void Beaconscanner::scanAndPublish(uint16_t duration, int flags, const char* eve
 #ifdef SUPPORT_RUUVI
     while (!Ruuvi::beacons.isEmpty())
         publish(SCAN_RUUVI, rate_limit);
+#endif
+#ifdef SUPPORT_THERMOPRO
+    while (!ThermoPro::beacons.isEmpty())
+        publish(SCAN_THERMOPRO, rate_limit);
+#endif
+#ifdef SUPPORT_GOOVEE
+    while (!Goovee::beacons.isEmpty())
+        publish(SCAN_GOOVEE, rate_limit);
 #endif
 }
 
@@ -370,6 +430,22 @@ void Beaconscanner::loop() {
         if (_callback && r.newly_scanned) {
             _callback(r, NEW);
             r.newly_scanned = false;
+        }
+    }
+#endif
+#ifdef SUPPORT_THERMOPRO
+    for (ThermoPro& t : ThermoPro::beacons) {
+        if (_callback && t.newly_scanned) {
+            _callback(t, NEW);
+            t.newly_scanned = false;
+        }
+    }
+#endif
+#ifdef SUPPORT_GOOVEE
+    for (Goovee& g : Goovee::beacons) {
+        if (_callback && g.newly_scanned) {
+            _callback(g, NEW);
+            g.newly_scanned = false;
         }
     }
 #endif
@@ -495,6 +571,46 @@ void Beaconscanner::loop() {
             }
         }
 #endif
+#ifdef SUPPORT_THERMOPRO
+        for (auto& t : ThermoPro::beacons) {
+            if (t.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(t, REMOVED);
+                }
+                t.missed_scan = -1;
+            } else {
+                t.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < ThermoPro::beacons.size(); i++) {
+                if (ThermoPro::beacons.at(i).missed_scan < 0) {
+                    ThermoPro::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
+#ifdef SUPPORT_GOOVEE
+        for (auto& g : Goovee::beacons) {
+            if (g.missed_scan >= _clear_missed) {
+                if (_callback) {
+                    _callback(g, REMOVED);
+                }
+                g.missed_scan = -1;
+            } else {
+                g.missed_scan++;
+            }
+        }
+        SINGLE_THREADED_BLOCK() {
+            for (int i = 0; i < Goovee::beacons.size(); i++) {
+                if (Goovee::beacons.at(i).missed_scan < 0) {
+                    Goovee::beacons.removeAt(i);
+                    i--;
+                }
+            }
+        }
+#endif
         _scan_done = false;
     }
 }
@@ -544,6 +660,20 @@ void Beaconscanner::publish(const char* eventName, int type, bool rate_limit)
         }
     }
 #endif
+#ifdef SUPPORT_THERMOPRO
+    if (type & SCAN_THERMOPRO) {
+        while (!ThermoPro::beacons.isEmpty()) {
+            publish(SCAN_THERMOPRO, rate_limit);
+        }
+    }
+#endif
+#ifdef SUPPORT_GOOVEE
+    if (type & SCAN_GOOVEE) {
+        while (!Goovee::beacons.isEmpty()) {
+            publish(SCAN_GOOVEE, rate_limit);
+        }
+    }
+#endif
 }
 
 void Beaconscanner::publish(int type, bool rate_limit)
@@ -583,6 +713,16 @@ void Beaconscanner::publish(int type, bool rate_limit)
 #ifdef SUPPORT_RUUVI
         case SCAN_RUUVI:
             Particle.publish(String::format("%s-ruuvi", _eventName), getJson(&Ruuvi::beacons, std::min(RUUVI_CHUNK, Ruuvi::beacons.size()), this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_THERMOPRO
+        case SCAN_THERMOPRO:
+            Particle.publish(String::format("%s-thermoPro", _eventName), getJson(&ThermoPro::beacons, std::min(THERMOPRO_CHUNK, ThermoPro::beacons.size()), this), _pFlags);
+            break;
+#endif
+#ifdef SUPPORT_GOOVEE
+        case SCAN_GOOVEE:
+            Particle.publish(String::format("%s-Goovee", _eventName), getJson(&Goovee::beacons, std::min(GOOVEE_CHUNK, Goovee::beacons.size()), this), _pFlags);
             break;
 #endif
         default:
